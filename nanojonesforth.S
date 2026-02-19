@@ -6,6 +6,11 @@
 	gcc -m32 -nostdlib -static -Wl,-Ttext,0 -Wl,--build-id=none -o jonesforth jonesforth.S
 */
 	.set JONES_VERSION,47
+	.set F_IMMED,0x80
+	.set F_HIDDEN,0x20
+	.set F_LENMASK,0x1f	// length mask
+	.set RETURN_STACK_SIZE,8192
+	.set BUFFER_SIZE,4096
 
 //#include <asm-i386/unistd.h>	// you might need this instead
 #include <asm/unistd.h>
@@ -82,9 +87,6 @@ var_\name :
 	.endm
 
 /* DOCOL - the interpreter! */
-	.text
-	.align 4
-
 	defcode "DOCOL",5,,_DOCOL // DOCOL - the interpreter! 
 DOCOL:
 	lea -4(%ebp),%ebp	// push %esi on to return stack
@@ -100,15 +102,6 @@ _start:
 	cld
 	mov $(COLD_START+4),%esi // Initialise interpreter.
 	NEXT			// Run interpreter!
-
-	defword "COLD_START",10,,COLD_START
-	.int RZ, RSPSTORE, DSPFETCH, SZ, STORE, ZERO, DUP, DUP, DUP, DUP, SYS_BRK, SYSCALL3, DUP, HERE, STORE
-	.int INITIAL_DATA_SEGMENT_SIZE, ZERO, SWAP, SUB, SUB, SYS_BRK, SYSCALL3, DROP, QUIT
-
-/* Flags - these are discussed later. */
-	.set F_IMMED,0x80
-	.set F_HIDDEN,0x20
-	.set F_LENMASK,0x1f	// length mask
 
 /*
 	Now some easy FORTH primitives.  These are written in assembly for speed.  If you understand
@@ -423,66 +416,6 @@ _start:
 	mov %edx,%esi		// restore %esi
 	NEXT
 
-/* BUILT-IN VARIABLES ---------------------------------------------------------------------- */
-
-	defvar "STATE",5,,STATE
-	defvar "HERE",4,,HERE
-	defvar "LATEST",6,,LATEST,name_SYSCALL0 // SYSCALL0 must be last in built-in dictionary
-	defvar "S0",2,,SZ
-	defvar "BASE",4,,BASE,10
-	defvar "WORD_BUFFER",11,,WORD_BUFFER,word_buffer
-	defvar "KEY_CURRKEY",11,,KEY_CURRKEY,buffer
-	defvar "KEY_BUFFTOP",11,,KEY_BUFFTOP,buffer
-	defvar "KEY_BUFFER",10,,KEY_BUFFER,buffer
-	defvar "KEY_BUFFER_SIZE",15,,KEY_BUFFER_SIZE,BUFFER_SIZE
-	defvar "INTERPRET_IS_LIT",16,,INTERPRET_IS_LIT
-	defvar "INTERPRET_ERRMSG",16,,INTERPRET_ERRMSG,errmsg
-	defvar "INTERPRET_ERRMSGLEN",19,,INTERPRET_ERRMSGLEN,errmsgend-errmsg
-	defvar "INTERPRET_ERRMSGNL",18,,INTERPRET_ERRMSGNL,errmsgnl
-	defvar "NUMBER_CURLEN",13,,NUMBER_CURLEN
-	defvar "NUMBER_CURADDR",14,,NUMBER_CURADDR
-	defvar "NUMBER_CURSUM",13,,NUMBER_CURSUM
-
-/* BUILT-IN CONSTANTS ---------------------------------------------------------------------- */
-
-	defconst "INITIAL_DATA_SEGMENT_SIZE",25,,INITIAL_DATA_SEGMENT_SIZE,65536
-	defconst "VERSION",7,,VERSION,JONES_VERSION
-	defconst "R0",2,,RZ,return_stack_top
-	defconst "DOCOL",5,,__DOCOL,DOCOL
-	defconst "F_IMMED",7,,__F_IMMED,F_IMMED
-	defconst "F_HIDDEN",8,,__F_HIDDEN,F_HIDDEN
-	defconst "F_LENMASK",9,,__F_LENMASK,F_LENMASK
-	defconst "ZERO",4,,ZERO,0
-	defconst "ONE",3,,ONE,1
-	defconst "TWO",3,,TWO,2
-	defconst "TEN",3,,TEN,10
-	defconst "THIRTYTWO",9,,THIRTYTWO,32
-	defconst "FORTY",5,,FORTY,40
-	defconst "FORTYFIVE",9,,FORTYFIVE,45
-	defconst "FORTYEIGHT",10,,FORTYEIGHT,48
-	defconst "FIFTYFIVE",9,,FIFTYFIVE,55
-	defconst "FIFTYEIGHT",10,,FIFTYEIGHT,58
-	defconst "SIXTYFOUR",9,,SIXTYFOUR,64
-	defconst "NINETYTWO",9,,NINETYTWO,92
-	defconst "ffh",3,,ffh,255
-
-	defconst "SYS_EXIT",8,,SYS_EXIT,__NR_exit
-	defconst "SYS_OPEN",8,,SYS_OPEN,__NR_open
-	defconst "SYS_CLOSE",9,,SYS_CLOSE,__NR_close
-	defconst "SYS_READ",8,,SYS_READ,__NR_read
-	defconst "SYS_WRITE",9,,SYS_WRITE,__NR_write
-	defconst "SYS_CREAT",9,,SYS_CREAT,__NR_creat
-	defconst "SYS_BRK",7,,SYS_BRK,__NR_brk
-
-	defconst "O_RDONLY",8,,__O_RDONLY,0
-	defconst "O_WRONLY",8,,__O_WRONLY,1
-	defconst "O_RDWR",6,,__O_RDWR,2
-	defconst "O_CREAT",7,,__O_CREAT,0100
-	defconst "O_EXCL",6,,__O_EXCL,0200
-	defconst "O_TRUNC",7,,__O_TRUNC,01000
-	defconst "O_APPEND",8,,__O_APPEND,02000
-	defconst "O_NONBLOCK",10,,__O_NONBLOCK,04000
-
 /* RETURN STACK ---------------------------------------------------------------------- */
 
 	defcode ">R",2,,TOR
@@ -520,12 +453,6 @@ _start:
 
 /* INPUT AND OUTPUT ---------------------------------------------------------------------- */
 
-	defword "KEY",3,,KEY
-	.int KEY_CURRKEY, FETCH, KEY_BUFFTOP, FETCH, SWAP, INCR, LT, ZBRANCH, 144, KEY_BUFFER, FETCH, KEY_CURRKEY, STORE
-	.int KEY_BUFFER_SIZE, FETCH, KEY_BUFFER, FETCH, ZERO, SYS_READ, SYSCALL3, DUP, ONE, LT, ZBRANCH, 32, DROP
-	.int ZERO, ZERO, ZERO, SYS_EXIT, SYSCALL3, EXIT, KEY_BUFFER, FETCH, DUP, DUP, SUB, SWAP, SUB, SUB, KEY_BUFFTOP, STORE
-	.int BRANCH, -172, KEY_CURRKEY, FETCH, FETCHBYTE, KEY_CURRKEY, FETCH, INCR, KEY_CURRKEY, STORE, EXIT
-
 	defcode "EMIT",4,,EMIT
 	pop %eax
 	call _EMIT
@@ -542,25 +469,6 @@ _EMIT:
 	mov $__NR_write,%eax	// write syscall
 	int $0x80
 	ret
-
-	defword "WORD",4,,WORD
-	.int ZERO, DROP, KEY, DUP, NINETYTWO, SUB, ZEQU, ZBRANCH, 36, DROP, KEY, DUP, TEN, SUB, ZEQU
-	.int ZBRANCH, -28, DUP, THIRTYTWO, SWAP, LT, ZBRANCH, -84, WORD_BUFFER, FETCH, SWAP
-	.int WORD_BUFFER, FETCH, SWAP, SWAP, STOREBYTE, INCR, DUP, KEY, DUP, THIRTYTWO, INCR
-	.int LT, ZBRANCH, -40, DROP, DROP, WORD_BUFFER, FETCH, SUB, WORD_BUFFER, FETCH, SWAP, EXIT
-
-	defword "NUMBER",6,,NUMBER
-	.int NUMBER_CURLEN, STORE, NUMBER_CURADDR, STORE, ZERO, NUMBER_CURSUM, STORE, ZERO 
-	.int NUMBER_CURLEN, FETCH, ZBRANCH, 84, NUMBER_CURADDR, FETCH, FETCHBYTE, FORTYFIVE, SUB 
-	.int ZEQU, ZBRANCH, 52, INCR, NUMBER_CURADDR, FETCH, INCR, NUMBER_CURADDR, STORE 
-	.int NUMBER_CURLEN, FETCH, ONE, SUB, NUMBER_CURLEN, STORE, NUMBER_CURLEN, FETCH, ZBRANCH, 268 
-	.int NUMBER_CURSUM, FETCH, BASE, FETCH, MUL, NUMBER_CURSUM, STORE, NUMBER_CURADDR, FETCH, FETCHBYTE  
-	.int NUMBER_CURADDR, FETCH, INCR, NUMBER_CURADDR, STORE, NUMBER_CURLEN, FETCH, ONE, SUB, NUMBER_CURLEN, STORE 
-	.int DUP, FIFTYEIGHT, LT, ZBRANCH, 12, FORTYEIGHT, SUB, DUP, SIXTYFOUR, SWAP, LT, ZBRANCH, 12  
-	.int FIFTYFIVE, SUB, DUP, DUP, BASE, FETCH, SWAP, SUB, SWAP, INCR, MUL, ONE, LT, SWAP, DUP, DUP, SUB, SWAP, SUB 
-	.int NUMBER_CURSUM, FETCH, SWAP, SUB, NUMBER_CURSUM, STORE, ZEQU, NUMBER_CURLEN, FETCH, MUL 
-	.int ZEQU, ZBRANCH, -260, ZBRANCH, 40, NUMBER_CURSUM, FETCH, DUP, DUP, SUB, SWAP, SUB 
-	.int NUMBER_CURSUM, STORE, NUMBER_CURSUM, FETCH, NUMBER_CURLEN, FETCH, EXIT
 
 	defcode "FIND",4,,FIND
 	pop %ecx		// %ecx = length
@@ -624,11 +532,6 @@ _TCFA:
 	andl $~3,%edi
 	ret
 
-	defword ">DFA",4,,TDFA
-	.int TCFA		// >CFA		(get code field address)
-	.int INCR4		// 4+		(add 4 to it to get to next word)
-	.int EXIT		// EXIT		(return from FORTH word)
-
 	defcode "CREATE",6,,CREATE
 	// Get the name length and address.
 	pop %ecx		// %ecx = length
@@ -671,20 +574,6 @@ _COMMA:
 	movl $1,var_STATE	// Set STATE to 1.
 	NEXT
 
-	defword ":",1,,COLON
-	.int WORD		// Get the name of the new word
-	.int CREATE		// CREATE the dictionary entry / header
-	.int LIT, DOCOL, COMMA	// Append DOCOL  (the codeword).
-	.int LATEST, FETCH, HIDDEN // Make the word hidden (see below for definition).
-	.int RBRAC		// Go into compile mode.
-	.int EXIT		// Return from the function.
-
-	defword ";",1,F_IMMED,SEMICOLON
-	.int LIT, EXIT, COMMA	// Append EXIT (so the word will return).
-	.int LATEST, FETCH, HIDDEN // Toggle hidden flag -- unhide the word (see below for definition).
-	.int LBRAC		// Go back to IMMEDIATE mode.
-	.int EXIT		// Return from the function.
-
 	defcode "IMMEDIATE",9,F_IMMED,IMMEDIATE
 	movl var_LATEST,%edi	// LATEST word.
 	addl $4,%edi		// Point to name/flags byte.
@@ -696,12 +585,6 @@ _COMMA:
 	addl $4,%edi		// Point to name/flags byte.
 	xorb $F_HIDDEN,(%edi)	// Toggle the HIDDEN bit.
 	NEXT
-
-	defword "HIDE",4,,HIDE
-	.int WORD		// Get the word (after HIDE).
-	.int FIND		// Look up in the dictionary.
-	.int HIDDEN		// Set F_HIDDEN flag.
-	.int EXIT		// Return.
 
 	defcode "'",1,,TICK
 	lodsl			// Get the address of the next word and skip it.
@@ -735,25 +618,6 @@ _COMMA:
 	mov $__NR_write,%eax	// write syscall
 	int $0x80
 	NEXT
-
-	// QUIT must not return (ie. must not call EXIT).
-	defword "QUIT",4,,QUIT
-	.int RZ,RSPSTORE	// R0 RSP!, clear the return stack
-	.int INTERPRET		// interpret the next word
-	.int BRANCH,-8		// and loop (indefinitely)
-
-	defword "INTERPRET",9,,INTERPRET
-	.int WORD, TWODUP, ZERO, INTERPRET_IS_LIT, STORE, FIND, DUP, ZBRANCH, 80, SWAP, DROP, SWAP, DROP, DUP 
-	.int INCR, INCR, INCR, INCR, FETCHBYTE, SWAP, TCFA, SWAP, __F_IMMED, NAND, DUP, NAND, BRANCH, 184
-	.int INTERPRET_IS_LIT, FETCH, INCR, INTERPRET_IS_LIT, STORE, DROP, NUMBER, ZBRANCH, 144
-	.int INTERPRET_ERRMSGLEN, FETCH, INTERPRET_ERRMSG, FETCH, TWO, SYS_WRITE, SYSCALL3, currkey, FETCH
-	.int buffer, FETCH, SUB, DUP, FORTY, SWAP, FORTY, SWAP, LT, ZBRANCH, 12, SWAP, DROP, DROP
-	.int currkey, FETCH, TWO, SYS_WRITE, SYSCALL3, ONE, INTERPRET_ERRMSGNL, FETCH, TWO, SYS_WRITE, SYSCALL3 
-	.int EXIT, ZERO, ZEQU, STATE, FETCH, MUL, ONE, SWAP, SUB, ZBRANCH, 44, INTERPRET_IS_LIT, FETCH, ZEQU, ZBRANCH, 16
-	.int EXECUTE, BRANCH, 4, BRANCH, 36, INTERPRET_IS_LIT, FETCH, ZBRANCH, 16, TICK, LIT, COMMA, COMMA, EXIT
-
-	defword "CHAR",4,,CHAR
-	.int WORD, DROP, FETCH, ffh, AND, EXIT ;
 
 	defcode "EXECUTE",7,,EXECUTE
 	pop %eax		// Get xt into %eax
@@ -790,37 +654,160 @@ _COMMA:
 	push %eax		// Result (negative for -errno)
 	NEXT
 
+/* BUILT-IN VARIABLES ---------------------------------------------------------------------- */
+
+	defvar "STATE",5,,STATE
+	defvar "HERE",4,,HERE
+	defvar "LATEST",6,,LATEST,name_QUIT // QUIT must be last in built-in dictionary
+	defvar "S0",2,,SZ
+	defvar "BASE",4,,BASE,10
+	defvar "WORD_BUFFER",11,,WORD_BUFFER,word_buffer
+	defvar "KEY_CURRKEY",11,,KEY_CURRKEY,buffer
+	defvar "KEY_BUFFTOP",11,,KEY_BUFFTOP,buffer
+	defvar "KEY_BUFFER",10,,KEY_BUFFER,buffer
+	defvar "KEY_BUFFER_SIZE",15,,KEY_BUFFER_SIZE,BUFFER_SIZE
+	defvar "INTERPRET_IS_LIT",16,,INTERPRET_IS_LIT
+	defvar "INTERPRET_ERRMSG",16,,INTERPRET_ERRMSG,errmsg
+	defvar "INTERPRET_ERRMSGLEN",19,,INTERPRET_ERRMSGLEN,errmsgend-errmsg
+	defvar "INTERPRET_ERRMSGNL",18,,INTERPRET_ERRMSGNL,errmsgnl
+	defvar "NUMBER_CURLEN",13,,NUMBER_CURLEN
+	defvar "NUMBER_CURADDR",14,,NUMBER_CURADDR
+	defvar "NUMBER_CURSUM",13,,NUMBER_CURSUM
+
+/* BUILT-IN CONSTANTS ---------------------------------------------------------------------- */
+
+	defconst "INITIAL_DATA_SEGMENT_SIZE",25,,INITIAL_DATA_SEGMENT_SIZE,65536
+	defconst "VERSION",7,,VERSION,JONES_VERSION
+	defconst "R0",2,,RZ,return_stack_top
+	defconst "DOCOL",5,,__DOCOL,DOCOL
+	defconst "F_IMMED",7,,__F_IMMED,F_IMMED
+	defconst "F_HIDDEN",8,,__F_HIDDEN,F_HIDDEN
+	defconst "F_LENMASK",9,,__F_LENMASK,F_LENMASK
+	defconst "ZERO",4,,ZERO,0
+	defconst "ONE",3,,ONE,1
+	defconst "TWO",3,,TWO,2
+	defconst "TEN",3,,TEN,10
+	defconst "THIRTYTWO",9,,THIRTYTWO,32
+	defconst "FORTY",5,,FORTY,40
+	defconst "FORTYFIVE",9,,FORTYFIVE,45
+	defconst "FORTYEIGHT",10,,FORTYEIGHT,48
+	defconst "FIFTYFIVE",9,,FIFTYFIVE,55
+	defconst "FIFTYEIGHT",10,,FIFTYEIGHT,58
+	defconst "SIXTYFOUR",9,,SIXTYFOUR,64
+	defconst "NINETYTWO",9,,NINETYTWO,92
+	defconst "ffh",3,,ffh,255
+
+	defconst "SYS_EXIT",8,,SYS_EXIT,__NR_exit
+	defconst "SYS_OPEN",8,,SYS_OPEN,__NR_open
+	defconst "SYS_CLOSE",9,,SYS_CLOSE,__NR_close
+	defconst "SYS_READ",8,,SYS_READ,__NR_read
+	defconst "SYS_WRITE",9,,SYS_WRITE,__NR_write
+	defconst "SYS_CREAT",9,,SYS_CREAT,__NR_creat
+	defconst "SYS_BRK",7,,SYS_BRK,__NR_brk
+
+	defconst "O_RDONLY",8,,__O_RDONLY,0
+	defconst "O_WRONLY",8,,__O_WRONLY,1
+	defconst "O_RDWR",6,,__O_RDWR,2
+	defconst "O_CREAT",7,,__O_CREAT,0100
+	defconst "O_EXCL",6,,__O_EXCL,0200
+	defconst "O_TRUNC",7,,__O_TRUNC,01000
+	defconst "O_APPEND",8,,__O_APPEND,02000
+	defconst "O_NONBLOCK",10,,__O_NONBLOCK,04000
+
+
+	defword "KEY",3,,KEY
+	.int KEY_CURRKEY, FETCH, KEY_BUFFTOP, FETCH, SWAP, INCR, LT, ZBRANCH, 144, KEY_BUFFER, FETCH, KEY_CURRKEY, STORE
+	.int KEY_BUFFER_SIZE, FETCH, KEY_BUFFER, FETCH, ZERO, SYS_READ, SYSCALL3, DUP, ONE, LT, ZBRANCH, 32, DROP
+	.int ZERO, ZERO, ZERO, SYS_EXIT, SYSCALL3, EXIT, KEY_BUFFER, FETCH, DUP, DUP, SUB, SWAP, SUB, SUB, KEY_BUFFTOP, STORE
+	.int BRANCH, -172, KEY_CURRKEY, FETCH, FETCHBYTE, KEY_CURRKEY, FETCH, INCR, KEY_CURRKEY, STORE, EXIT
+
+	defword "WORD",4,,WORD
+	.int ZERO, DROP, KEY, DUP, NINETYTWO, SUB, ZEQU, ZBRANCH, 36, DROP, KEY, DUP, TEN, SUB, ZEQU
+	.int ZBRANCH, -28, DUP, THIRTYTWO, SWAP, LT, ZBRANCH, -84, WORD_BUFFER, FETCH, SWAP
+	.int WORD_BUFFER, FETCH, SWAP, SWAP, STOREBYTE, INCR, DUP, KEY, DUP, THIRTYTWO, INCR
+	.int LT, ZBRANCH, -40, DROP, DROP, WORD_BUFFER, FETCH, SUB, WORD_BUFFER, FETCH, SWAP, EXIT
+
+	defword "NUMBER",6,,NUMBER
+	.int NUMBER_CURLEN, STORE, NUMBER_CURADDR, STORE, ZERO, NUMBER_CURSUM, STORE, ZERO 
+	.int NUMBER_CURLEN, FETCH, ZBRANCH, 84, NUMBER_CURADDR, FETCH, FETCHBYTE, FORTYFIVE, SUB 
+	.int ZEQU, ZBRANCH, 52, INCR, NUMBER_CURADDR, FETCH, INCR, NUMBER_CURADDR, STORE 
+	.int NUMBER_CURLEN, FETCH, ONE, SUB, NUMBER_CURLEN, STORE, NUMBER_CURLEN, FETCH, ZBRANCH, 268 
+	.int NUMBER_CURSUM, FETCH, BASE, FETCH, MUL, NUMBER_CURSUM, STORE, NUMBER_CURADDR, FETCH, FETCHBYTE  
+	.int NUMBER_CURADDR, FETCH, INCR, NUMBER_CURADDR, STORE, NUMBER_CURLEN, FETCH, ONE, SUB, NUMBER_CURLEN, STORE 
+	.int DUP, FIFTYEIGHT, LT, ZBRANCH, 12, FORTYEIGHT, SUB, DUP, SIXTYFOUR, SWAP, LT, ZBRANCH, 12  
+	.int FIFTYFIVE, SUB, DUP, DUP, BASE, FETCH, SWAP, SUB, SWAP, INCR, MUL, ONE, LT, SWAP, DUP, DUP, SUB, SWAP, SUB 
+	.int NUMBER_CURSUM, FETCH, SWAP, SUB, NUMBER_CURSUM, STORE, ZEQU, NUMBER_CURLEN, FETCH, MUL 
+	.int ZEQU, ZBRANCH, -260, ZBRANCH, 40, NUMBER_CURSUM, FETCH, DUP, DUP, SUB, SWAP, SUB 
+	.int NUMBER_CURSUM, STORE, NUMBER_CURSUM, FETCH, NUMBER_CURLEN, FETCH, EXIT
+
+	defword ">DFA",4,,TDFA
+	.int TCFA		// >CFA		(get code field address)
+	.int INCR4		// 4+		(add 4 to it to get to next word)
+	.int EXIT		// EXIT		(return from FORTH word)
+
+	defword ":",1,,COLON
+	.int WORD		// Get the name of the new word
+	.int CREATE		// CREATE the dictionary entry / header
+	.int LIT, DOCOL, COMMA	// Append DOCOL  (the codeword).
+	.int LATEST, FETCH, HIDDEN // Make the word hidden (see below for definition).
+	.int RBRAC		// Go into compile mode.
+	.int EXIT		// Return from the function.
+
+	defword ";",1,F_IMMED,SEMICOLON
+	.int LIT, EXIT, COMMA	// Append EXIT (so the word will return).
+	.int LATEST, FETCH, HIDDEN // Toggle hidden flag -- unhide the word (see below for definition).
+	.int LBRAC		// Go back to IMMEDIATE mode.
+	.int EXIT		// Return from the function.
+
+	defword "HIDE",4,,HIDE
+	.int WORD		// Get the word (after HIDE).
+	.int FIND		// Look up in the dictionary.
+	.int HIDDEN		// Set F_HIDDEN flag.
+	.int EXIT		// Return.
+
+	defword "COLD_START",10,,COLD_START
+	.int RZ, RSPSTORE, DSPFETCH, SZ, STORE, ZERO, DUP, DUP, DUP, DUP, SYS_BRK, SYSCALL3, DUP, HERE, STORE
+	.int INITIAL_DATA_SEGMENT_SIZE, ZERO, SWAP, SUB, SUB, SYS_BRK, SYSCALL3, DROP, QUIT
+
+	defword "INTERPRET",9,,INTERPRET
+	.int WORD, TWODUP, ZERO, INTERPRET_IS_LIT, STORE, FIND, DUP, ZBRANCH, 80, SWAP, DROP, SWAP, DROP, DUP 
+	.int INCR, INCR, INCR, INCR, FETCHBYTE, SWAP, TCFA, SWAP, __F_IMMED, NAND, DUP, NAND, BRANCH, 184
+	.int INTERPRET_IS_LIT, FETCH, INCR, INTERPRET_IS_LIT, STORE, DROP, NUMBER, ZBRANCH, 144
+	.int INTERPRET_ERRMSGLEN, FETCH, INTERPRET_ERRMSG, FETCH, TWO, SYS_WRITE, SYSCALL3, currkey, FETCH
+	.int buffer, FETCH, SUB, DUP, FORTY, SWAP, FORTY, SWAP, LT, ZBRANCH, 12, SWAP, DROP, DROP
+	.int currkey, FETCH, TWO, SYS_WRITE, SYSCALL3, ONE, INTERPRET_ERRMSGNL, FETCH, TWO, SYS_WRITE, SYSCALL3 
+	.int EXIT, ZERO, ZEQU, STATE, FETCH, MUL, ONE, SWAP, SUB, ZBRANCH, 44, INTERPRET_IS_LIT, FETCH, ZEQU, ZBRANCH, 16
+	.int EXECUTE, BRANCH, 4, BRANCH, 36, INTERPRET_IS_LIT, FETCH, ZBRANCH, 16, TICK, LIT, COMMA, COMMA, EXIT
+
+	defword "CHAR",4,,CHAR
+	.int WORD, DROP, FETCH, ffh, AND, EXIT ;
+
+	// QUIT must not return (ie. must not call EXIT).
+	defword "QUIT",4,,QUIT
+	.int RZ,RSPSTORE	// R0 RSP!, clear the return stack
+	.int INTERPRET		// interpret the next word
+	.int BRANCH,-8		// and loop (indefinitely)
+
 	.data
 	.align 4
 currkey:
 	.int buffer		// Current place in input buffer (next character to read).
 bufftop:
 	.int buffer		// Last valid data in input buffer + 1.
-
-	.data			// NB: easier to fit in the .data section
-emit_scratch:
-	.space 1		// scratch used by EMIT
-
-	.data			// NB: easier to fit in the .data section
+interpret_is_lit:
+	.int 0			// Flag used to record if reading a literal
 	// A static buffer where WORD returns.  Subsequent calls
 	// overwrite this buffer.  Maximum word length is 32 chars.
 word_buffer:
 	.space 32
+emit_scratch:
+	.space 1		// scratch used by EMIT
+
 
 	.section .rodata
 errmsg: .ascii "PARSE ERROR: "
 errmsgend:
 errmsgnl: .ascii "\n"
-
-	.data			// NB: easier to fit in the .data section
-	.align 4
-interpret_is_lit:
-	.int 0			// Flag used to record if reading a literal
-
-	.text
-
-	.set RETURN_STACK_SIZE,8192
-	.set BUFFER_SIZE,4096
 
 	.bss
 /* FORTH return stack. */
