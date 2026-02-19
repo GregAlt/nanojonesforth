@@ -436,6 +436,9 @@ cold_start:			// High-level code without a codeword.
 	defvar "INTERPRET_ERRMSG",16,,INTERPRET_ERRMSG,errmsg
 	defvar "INTERPRET_ERRMSGLEN",19,,INTERPRET_ERRMSGLEN,errmsgend-errmsg
 	defvar "INTERPRET_ERRMSGNL",18,,INTERPRET_ERRMSGNL,errmsgnl
+	defvar "NUMBER_CURLEN",13,,NUMBER_CURLEN
+	defvar "NUMBER_CURADDR",14,,NUMBER_CURADDR
+	defvar "NUMBER_CURSUM",13,,NUMBER_CURSUM
 
 /* BUILT-IN CONSTANTS ---------------------------------------------------------------------- */
 
@@ -449,6 +452,11 @@ cold_start:			// High-level code without a codeword.
 	defconst "ONE",3,,ONE,1
 	defconst "TWO",3,,TWO,2
 	defconst "FORTY",5,,FORTY,40
+	defconst "FORTYFIVE",9,,FORTYFIVE,45
+	defconst "FORTYEIGHT",10,,FORTYEIGHT,48
+	defconst "FIFTYFIVE",9,,FIFTYFIVE,55
+	defconst "FIFTYEIGHT",10,,FIFTYEIGHT,58
+	defconst "SIXTYFOUR",9,,SIXTYFOUR,64
 
 	defconst "SYS_EXIT",8,,SYS_EXIT,__NR_exit
 	defconst "SYS_OPEN",8,,SYS_OPEN,__NR_open
@@ -606,66 +614,18 @@ _WORD:
 word_buffer:
 	.space 32
 
-	defcode "NUMBER",6,,NUMBER
-	pop %ecx		// length of string
-	pop %edi		// start address of string
-	call _NUMBER
-	push %eax		// parsed number
-	push %ecx		// number of unparsed characters (0 = no error)
-	NEXT
-
-_NUMBER:
-	xor %eax,%eax
-	xor %ebx,%ebx
-
-	test %ecx,%ecx		// trying to parse a zero-length string is an error, but will return 0.
-	jz 5f
-
-	movl var_BASE,%edx	// get BASE (in %dl)
-
-	// Check if first character is '-'.
-	movb (%edi),%bl		// %bl = first character in string
-	inc %edi
-	push %eax		// push 0 on stack
-	cmpb $'-',%bl		// negative number?
-	jnz 2f
-	pop %eax
-	push %ebx		// push <> 0 on stack, indicating negative
-	dec %ecx
-	jnz 1f
-	pop %ebx		// error: string is only '-'.
-	movl $1,%ecx
-	ret
-
-	// Loop reading digits.
-1:	imull %edx,%eax		// %eax *= BASE
-	movb (%edi),%bl		// %bl = next character in string
-	inc %edi
-
-	// Convert 0-9, A-Z to a number 0-35.
-2:	subb $'0',%bl		// < '0'?
-	jb 4f
-	cmp $10,%bl		// <= '9'?
-	jb 3f
-	subb $17,%bl		// < 'A'? (17 is 'A'-'0')
-	jb 4f
-	addb $10,%bl
-
-3:	cmp %dl,%bl		// >= BASE?
-	jge 4f
-
-	// OK, so add it to %eax and loop.
-	add %ebx,%eax
-	dec %ecx
-	jnz 1b
-
-	// Negate the result if first character was '-' (saved on the stack).
-4:	pop %ebx
-	test %ebx,%ebx
-	jz 5f
-	neg %eax
-
-5:	ret
+	defword "NUMBER",6,,NUMBER
+	.int NUMBER_CURLEN, STORE, NUMBER_CURADDR, STORE, ZERO, NUMBER_CURSUM, STORE, ZERO 
+	.int NUMBER_CURLEN, FETCH, ZBRANCH, 84, NUMBER_CURADDR, FETCH, FETCHBYTE, FORTYFIVE, SUB 
+	.int ZEQU, ZBRANCH, 52, INCR, NUMBER_CURADDR, FETCH, INCR, NUMBER_CURADDR, STORE 
+	.int NUMBER_CURLEN, FETCH, ONE, SUB, NUMBER_CURLEN, STORE, NUMBER_CURLEN, FETCH, ZBRANCH, 268 
+	.int NUMBER_CURSUM, FETCH, BASE, FETCH, MUL, NUMBER_CURSUM, STORE, NUMBER_CURADDR, FETCH, FETCHBYTE  
+	.int NUMBER_CURADDR, FETCH, INCR, NUMBER_CURADDR, STORE, NUMBER_CURLEN, FETCH, ONE, SUB, NUMBER_CURLEN, STORE 
+	.int DUP, FIFTYEIGHT, LT, ZBRANCH, 12, FORTYEIGHT, SUB, DUP, SIXTYFOUR, SWAP, LT, ZBRANCH, 12  
+	.int FIFTYFIVE, SUB, DUP, DUP, BASE, FETCH, SWAP, SUB, SWAP, INCR, MUL, ONE, LT, SWAP, DUP, DUP, SUB, SWAP, SUB 
+	.int NUMBER_CURSUM, FETCH, SWAP, SUB, NUMBER_CURSUM, STORE, ZEQU, NUMBER_CURLEN, FETCH, MUL 
+	.int ZEQU, ZBRANCH, -260, ZBRANCH, 40, NUMBER_CURSUM, FETCH, DUP, DUP, SUB, SWAP, SUB 
+	.int NUMBER_CURSUM, STORE, NUMBER_CURSUM, FETCH, NUMBER_CURLEN, FETCH, EXIT
 
 	defcode "FIND",4,,FIND
 	pop %ecx		// %ecx = length
@@ -856,88 +816,6 @@ _COMMA:
 	.int currkey, FETCH, TWO, SYS_WRITE, SYSCALL3, ONE, INTERPRET_ERRMSGNL, FETCH, TWO, SYS_WRITE, SYSCALL3 
 	.int EXIT, ZERO, ZEQU, STATE, FETCH, MUL, ONE, SWAP, SUB, ZBRANCH, 44, INTERPRET_IS_LIT, FETCH, ZEQU, ZBRANCH, 16
 	.int EXECUTE, BRANCH, 4, BRANCH, 36, INTERPRET_IS_LIT, FETCH, ZBRANCH, 16, TICK, LIT, COMMA, COMMA, EXIT
-
-	defcode "INTERPRE0",9,,INTERPRE0
-	call _WORD		// Returns %ecx = length, %edi = pointer to word.
-
-	// Is it in the dictionary?
-	xor %eax,%eax
-	movl %eax,interpret_is_lit // Not a literal number (not yet anyway ...)
-	call _FIND		// Returns %eax = pointer to header or 0 if not found.
-	test %eax,%eax		// Found?
-	jz 1f
-
-	// In the dictionary.  Is it an IMMEDIATE codeword?
-	mov %eax,%edi		// %edi = dictionary entry
-	movb 4(%edi),%al	// Get name+flags.
-	push %ax		// Just save it for now.
-	call _TCFA		// Convert dictionary entry (in %edi) to codeword pointer.
-	pop %ax
-	andb $F_IMMED,%al	// Is IMMED flag set?
-	mov %edi,%eax
-	jnz 4f			// If IMMED, jump straight to executing.
-
-	jmp 2f
-
-1:	// Not in the dictionary (not a word) so assume it's a literal number.
-	incl interpret_is_lit
-	call _NUMBER		// Returns the parsed number in %eax, %ecx > 0 if error
-	test %ecx,%ecx
-	jnz 6f
-	mov %eax,%ebx
-	mov $LIT,%eax		// The word is LIT
-
-2:	// Are we compiling or executing?
-	movl var_STATE,%edx
-	test %edx,%edx
-	jz 4f			// Jump if executing.
-
-	// Compiling - just append the word to the current dictionary definition.
-	call _COMMA
-	mov interpret_is_lit,%ecx // Was it a literal?
-	test %ecx,%ecx
-	jz 3f
-	mov %ebx,%eax		// Yes, so LIT is followed by a number.
-	call _COMMA
-3:	NEXT
-
-4:	// Executing - run it!
-	mov interpret_is_lit,%ecx // Literal?
-	test %ecx,%ecx		// Literal?
-	jnz 5f
-
-	// Not a literal, execute it now.  This never returns, but the codeword will
-	// eventually call NEXT which will reenter the loop in QUIT.
-	jmp *(%eax)
-
-5:	// Executing a literal, which means push it on the stack.
-	push %ebx
-	NEXT
-
-6:	// Parse error (not a known word or a number in the current BASE).
-	// Print an error message followed by up to 40 characters of context.
-	mov $2,%ebx		// 1st param: stderr
-	mov $errmsg,%ecx	// 2nd param: error message
-	mov $errmsgend-errmsg,%edx // 3rd param: length of string
-	mov $__NR_write,%eax	// write syscall
-	int $0x80
-
-	mov (currkey),%ecx	// the error occurred just before currkey position
-	mov %ecx,%edx
-	sub $buffer,%edx	// %edx = currkey - buffer (length in buffer before currkey)
-	cmp $40,%edx		// if > 40, then print only 40 characters
-	jle 7f
-	mov $40,%edx
-7:	sub %edx,%ecx		// %ecx = start of area to print, %edx = length
-	mov $__NR_write,%eax	// write syscall
-	int $0x80
-
-	mov $errmsgnl,%ecx	// newline
-	mov $1,%edx
-	mov $__NR_write,%eax	// write syscall
-	int $0x80
-
-	NEXT
 
 	.section .rodata
 errmsg: .ascii "PARSE ERROR: "
