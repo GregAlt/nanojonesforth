@@ -526,13 +526,6 @@ _start:
 	.int ZERO, ZERO, ZERO, SYS_EXIT, SYSCALL3, EXIT, KEY_BUFFER, FETCH, DUP, DUP, SUB, SWAP, SUB, SUB, KEY_BUFFTOP, STORE
 	.int BRANCH, -172, KEY_CURRKEY, FETCH, FETCHBYTE, KEY_CURRKEY, FETCH, INCR, KEY_CURRKEY, STORE, EXIT
 
-	.data
-	.align 4
-currkey:
-	.int buffer		// Current place in input buffer (next character to read).
-bufftop:
-	.int buffer		// Last valid data in input buffer + 1.
-
 	defcode "EMIT",4,,EMIT
 	pop %eax
 	call _EMIT
@@ -550,21 +543,11 @@ _EMIT:
 	int $0x80
 	ret
 
-	.data			// NB: easier to fit in the .data section
-emit_scratch:
-	.space 1		// scratch used by EMIT
-
 	defword "WORD",4,,WORD
 	.int ZERO, DROP, KEY, DUP, NINETYTWO, SUB, ZEQU, ZBRANCH, 36, DROP, KEY, DUP, TEN, SUB, ZEQU
 	.int ZBRANCH, -28, DUP, THIRTYTWO, SWAP, LT, ZBRANCH, -84, WORD_BUFFER, FETCH, SWAP
 	.int WORD_BUFFER, FETCH, SWAP, SWAP, STOREBYTE, INCR, DUP, KEY, DUP, THIRTYTWO, INCR
 	.int LT, ZBRANCH, -40, DROP, DROP, WORD_BUFFER, FETCH, SUB, WORD_BUFFER, FETCH, SWAP, EXIT
-
-	.data			// NB: easier to fit in the .data section
-	// A static buffer where WORD returns.  Subsequent calls
-	// overwrite this buffer.  Maximum word length is 32 chars.
-word_buffer:
-	.space 32
 
 	defword "NUMBER",6,,NUMBER
 	.int NUMBER_CURLEN, STORE, NUMBER_CURADDR, STORE, ZERO, NUMBER_CURSUM, STORE, ZERO 
@@ -769,16 +752,6 @@ _COMMA:
 	.int EXIT, ZERO, ZEQU, STATE, FETCH, MUL, ONE, SWAP, SUB, ZBRANCH, 44, INTERPRET_IS_LIT, FETCH, ZEQU, ZBRANCH, 16
 	.int EXECUTE, BRANCH, 4, BRANCH, 36, INTERPRET_IS_LIT, FETCH, ZBRANCH, 16, TICK, LIT, COMMA, COMMA, EXIT
 
-	.section .rodata
-errmsg: .ascii "PARSE ERROR: "
-errmsgend:
-errmsgnl: .ascii "\n"
-
-	.data			// NB: easier to fit in the .data section
-	.align 4
-interpret_is_lit:
-	.int 0			// Flag used to record if reading a literal
-
 	defword "CHAR",4,,CHAR
 	.int WORD, DROP, FETCH, ffh, AND, EXIT ;
 
@@ -816,6 +789,33 @@ interpret_is_lit:
 	int $0x80
 	push %eax		// Result (negative for -errno)
 	NEXT
+
+	.data
+	.align 4
+currkey:
+	.int buffer		// Current place in input buffer (next character to read).
+bufftop:
+	.int buffer		// Last valid data in input buffer + 1.
+
+	.data			// NB: easier to fit in the .data section
+emit_scratch:
+	.space 1		// scratch used by EMIT
+
+	.data			// NB: easier to fit in the .data section
+	// A static buffer where WORD returns.  Subsequent calls
+	// overwrite this buffer.  Maximum word length is 32 chars.
+word_buffer:
+	.space 32
+
+	.section .rodata
+errmsg: .ascii "PARSE ERROR: "
+errmsgend:
+errmsgnl: .ascii "\n"
+
+	.data			// NB: easier to fit in the .data section
+	.align 4
+interpret_is_lit:
+	.int 0			// Flag used to record if reading a literal
 
 	.text
 
