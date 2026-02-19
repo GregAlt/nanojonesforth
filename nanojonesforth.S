@@ -7,6 +7,9 @@
 */
 	.set JONES_VERSION,47
 
+//#include <asm-i386/unistd.h>	// you might need this instead
+#include <asm/unistd.h>
+
 /* NEXT macro. */
 	.macro NEXT
 	lodsl
@@ -23,9 +26,6 @@
 	mov (%ebp),\reg		// pop top of return stack to reg
 	lea 4(%ebp),%ebp
 	.endm
-
-//#include <asm-i386/unistd.h>	// you might need this instead
-#include <asm/unistd.h>
 
 	.macro defconst name, namelen, flags=0, label, value
 	defcode \name,\namelen,\flags,\label
@@ -330,6 +330,12 @@ cold_start:			// High-level code without a codeword.
 	pushl %eax
 	NEXT
 
+        defcode "NAND",4,,NAND    // bitwise NAND
+        pop %eax
+        andl %eax,(%esp)
+	notl (%esp)
+        NEXT
+
 	defcode "AND",3,,AND	// bitwise AND
 	pop %eax
 	andl %eax,(%esp)
@@ -426,6 +432,11 @@ cold_start:			// High-level code without a codeword.
 	defvar "S0",2,,SZ
 	defvar "BASE",4,,BASE,10
 
+	defvar "INTERPRET_IS_LIT",16,,INTERPRET_IS_LIT
+	defvar "INTERPRET_ERRMSG",16,,INTERPRET_ERRMSG,errmsg
+	defvar "INTERPRET_ERRMSGLEN",19,,INTERPRET_ERRMSGLEN,errmsgend-errmsg
+	defvar "INTERPRET_ERRMSGNL",18,,INTERPRET_ERRMSGNL,errmsgnl
+
 /* BUILT-IN CONSTANTS ---------------------------------------------------------------------- */
 
 	defconst "VERSION",7,,VERSION,JONES_VERSION
@@ -434,6 +445,10 @@ cold_start:			// High-level code without a codeword.
 	defconst "F_IMMED",7,,__F_IMMED,F_IMMED
 	defconst "F_HIDDEN",8,,__F_HIDDEN,F_HIDDEN
 	defconst "F_LENMASK",9,,__F_LENMASK,F_LENMASK
+	defconst "ZERO",4,,ZERO,0
+	defconst "ONE",3,,ONE,1
+	defconst "TWO",3,,TWO,2
+	defconst "FORTY",5,,FORTY,40
 
 	defconst "SYS_EXIT",8,,SYS_EXIT,__NR_exit
 	defconst "SYS_OPEN",8,,SYS_OPEN,__NR_open
@@ -832,7 +847,17 @@ _COMMA:
 	.int INTERPRET		// interpret the next word
 	.int BRANCH,-8		// and loop (indefinitely)
 
-	defcode "INTERPRET",9,,INTERPRET
+	defword "INTERPRET",9,,INTERPRET
+	.int WORD, TWODUP, ZERO, INTERPRET_IS_LIT, STORE, FIND, DUP, ZBRANCH, 80, SWAP, DROP, SWAP, DROP, DUP 
+	.int INCR, INCR, INCR, INCR, FETCHBYTE, SWAP, TCFA, SWAP, __F_IMMED, NAND, DUP, NAND, BRANCH, 184
+	.int INTERPRET_IS_LIT, FETCH, INCR, INTERPRET_IS_LIT, STORE, DROP, NUMBER, ZBRANCH, 144
+	.int INTERPRET_ERRMSGLEN, FETCH, INTERPRET_ERRMSG, FETCH, TWO, SYS_WRITE, SYSCALL3, currkey, FETCH
+	.int buffer, FETCH, SUB, DUP, FORTY, SWAP, FORTY, SWAP, LT, ZBRANCH, 12, SWAP, DROP, DROP
+	.int currkey, FETCH, TWO, SYS_WRITE, SYSCALL3, ONE, INTERPRET_ERRMSGNL, FETCH, TWO, SYS_WRITE, SYSCALL3 
+	.int EXIT, ZERO, ZEQU, STATE, FETCH, MUL, ONE, SWAP, SUB, ZBRANCH, 44, INTERPRET_IS_LIT, FETCH, ZEQU, ZBRANCH, 16
+	.int EXECUTE, BRANCH, 4, BRANCH, 36, INTERPRET_IS_LIT, FETCH, ZBRANCH, 16, TICK, LIT, COMMA, COMMA, EXIT
+
+	defcode "INTERPRE0",9,,INTERPRE0
 	call _WORD		// Returns %ecx = length, %edi = pointer to word.
 
 	// Is it in the dictionary?
