@@ -84,10 +84,13 @@ var_\name :
 /* DOCOL - the interpreter! */
 	.text
 	.align 4
+
+	defcode "DOCOL",5,,_DOCOL // DOCOL - the interpreter! 
 DOCOL:
-	PUSHRSP %esi		// push %esi on to the return stack
-	addl $4,%eax		// %eax points to codeword, so make
-	movl %eax,%esi		// %esi point to first data word
+	lea -4(%ebp),%ebp	// push %esi on to return stack
+	movl %esi,(%ebp)
+	addl $4,%eax            // %eax points to codeword, so make
+	movl %eax,%esi          // %esi point to first data word
 	NEXT
 
 /* Assembler entry point. */
