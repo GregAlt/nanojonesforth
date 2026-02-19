@@ -76,14 +76,14 @@ name_\label :
 code_\label :			// assembler code follows
 	.endm
 
-	.macro defvar name, namelen, flags=0, label, initial=0
+	.macro defvar name, namelen, flags=0, label, initial=0, align=4, size=4
+	.set size_\name,\size
 	defcode \name,\namelen,\flags,\label
 	push $var_\name
 	NEXT
-	.data
-	.align 4
-var_\name :
-	.int \initial
+	.if \size == 4 ; .data ; .else  ; .bss ; .endif
+	.align \align
+var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	.endm
 
 /* DOCOL - the interpreter! */
@@ -661,10 +661,13 @@ _COMMA:
 	defvar "LATEST",6,,LATEST,name_QUIT // QUIT must be last in built-in dictionary
 	defvar "S0",2,,SZ
 	defvar "BASE",4,,BASE,10
-	defvar "WORD_BUFFER",11,,WORD_BUFFER,word_buffer
-	defvar "KEY_CURRKEY",11,,KEY_CURRKEY,buffer
-	defvar "KEY_BUFFTOP",11,,KEY_BUFFTOP,buffer
-	defvar "KEY_BUFFER",10,,KEY_BUFFER,buffer
+	defvar "WB",2,,WB,,4,32
+	defvar "RET_STACK",9,,RETURN_STACK,,4096,8192
+	defvar "WORD_BUFFER",11,,WORD_BUFFER,var_WB
+	defvar "KB",2,,KB,,4096,4096
+	defvar "KEY_CURRKEY",11,,KEY_CURRKEY,var_KB
+	defvar "KEY_BUFFTOP",11,,KEY_BUFFTOP,var_KB
+	defvar "KEY_BUFFER",10,,KEY_BUFFER,var_KB
 	defvar "KEY_BUFFER_SIZE",15,,KEY_BUFFER_SIZE,BUFFER_SIZE
 	defvar "INTERPRET_IS_LIT",16,,INTERPRET_IS_LIT
 	defvar "INTERPRET_ERRMSG",16,,INTERPRET_ERRMSG,errmsg
@@ -679,7 +682,7 @@ _COMMA:
 
 	defconst "INITIAL_DATA_SEGMENT_SIZE",25,,INITIAL_DATA_SEGMENT_SIZE,65536
 	defconst "VERSION",7,,VERSION,JONES_VERSION
-	defconst "R0",2,,RZ,return_stack_top
+	defconst "R0",2,,RZ,var_RET_STACK+size_RET_STACK
 	defconst "DOCOL",5,,__DOCOL,DOCOL
 	defconst "F_IMMED",7,,__F_IMMED,F_IMMED
 	defconst "F_HIDDEN",8,,__F_HIDDEN,F_HIDDEN
@@ -789,28 +792,9 @@ _COMMA:
 	.int INTERPRET		// interpret the next word
 	.int BRANCH,-8		// and loop (indefinitely)
 
-	.data
-	.align 4
-	// A static buffer where WORD returns.  Subsequent calls
-	// overwrite this buffer.  Maximum word length is 32 chars.
-word_buffer:
-	.space 32
-
 	.section .rodata
 errmsg: .ascii "PARSE ERROR: "
 errmsgend:
 errmsgnl: .ascii "\n"
-
-	.bss
-/* FORTH return stack. */
-	.align 4096
-return_stack:
-	.space RETURN_STACK_SIZE
-return_stack_top:		// Initial top of return stack.
-
-/* This is used as a temporary input buffer when reading from files or the terminal. */
-	.align 4096
-buffer:
-	.space BUFFER_SIZE
 
 /* END OF jonesforth.S */
