@@ -1,0 +1,6 @@
+PARSE ERROR: 
+( -*- text -*- )
+
+: A 1 2 DUP SWAP FOO 
+PARSE ERROR:           \ n 1*n
+                SWAMP 
