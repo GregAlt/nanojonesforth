@@ -431,7 +431,11 @@ cold_start:			// High-level code without a codeword.
 	defvar "LATEST",6,,LATEST,name_SYSCALL0 // SYSCALL0 must be last in built-in dictionary
 	defvar "S0",2,,SZ
 	defvar "BASE",4,,BASE,10
-
+	defvar "WORD_BUFFER",11,,WORD_BUFFER,word_buffer
+	defvar "KEY_CURRKEY",11,,KEY_CURRKEY,buffer
+	defvar "KEY_BUFFTOP",11,,KEY_BUFFTOP,buffer
+	defvar "KEY_BUFFER",10,,KEY_BUFFER,buffer
+	defvar "KEY_BUFFER_SIZE",15,,KEY_BUFFER_SIZE,BUFFER_SIZE
 	defvar "INTERPRET_IS_LIT",16,,INTERPRET_IS_LIT
 	defvar "INTERPRET_ERRMSG",16,,INTERPRET_ERRMSG,errmsg
 	defvar "INTERPRET_ERRMSGLEN",19,,INTERPRET_ERRMSGLEN,errmsgend-errmsg
@@ -451,12 +455,16 @@ cold_start:			// High-level code without a codeword.
 	defconst "ZERO",4,,ZERO,0
 	defconst "ONE",3,,ONE,1
 	defconst "TWO",3,,TWO,2
+	defconst "TEN",3,,TEN,10
+	defconst "THIRTYTWO",9,,THIRTYTWO,32
 	defconst "FORTY",5,,FORTY,40
 	defconst "FORTYFIVE",9,,FORTYFIVE,45
 	defconst "FORTYEIGHT",10,,FORTYEIGHT,48
 	defconst "FIFTYFIVE",9,,FIFTYFIVE,55
 	defconst "FIFTYEIGHT",10,,FIFTYEIGHT,58
 	defconst "SIXTYFOUR",9,,SIXTYFOUR,64
+	defconst "NINETYTWO",9,,NINETYTWO,92
+	defconst "ffh",3,,ffh,255
 
 	defconst "SYS_EXIT",8,,SYS_EXIT,__NR_exit
 	defconst "SYS_OPEN",8,,SYS_OPEN,__NR_open
@@ -512,37 +520,11 @@ cold_start:			// High-level code without a codeword.
 
 /* INPUT AND OUTPUT ---------------------------------------------------------------------- */
 
-	defcode "KEY",3,,KEY
-	call _KEY
-	push %eax		// push return value on stack
-	NEXT
-_KEY:
-	mov (currkey),%ebx
-	cmp (bufftop),%ebx
-	jge 1f			// exhausted the input buffer?
-	xor %eax,%eax
-	mov (%ebx),%al		// get next key from input buffer
-	inc %ebx
-	mov %ebx,(currkey)	// increment currkey
-	ret
-
-1:	// Out of input; use read(2) to fetch more input from stdin.
-	xor %ebx,%ebx		// 1st param: stdin
-	mov $buffer,%ecx	// 2nd param: buffer
-	mov %ecx,currkey
-	mov $BUFFER_SIZE,%edx	// 3rd param: max length
-	mov $__NR_read,%eax	// syscall: read
-	int $0x80
-	test %eax,%eax		// If %eax <= 0, then exit.
-	jbe 2f
-	addl %eax,%ecx		// buffer+%eax = bufftop
-	mov %ecx,bufftop
-	jmp _KEY
-
-2:	// Error or end of input: exit the program.
-	xor %ebx,%ebx
-	mov $__NR_exit,%eax	// syscall: exit
-	int $0x80
+	defword "KEY",3,,KEY
+	.int KEY_CURRKEY, FETCH, KEY_BUFFTOP, FETCH, SWAP, INCR, LT, ZBRANCH, 144, KEY_BUFFER, FETCH, KEY_CURRKEY, STORE
+	.int KEY_BUFFER_SIZE, FETCH, KEY_BUFFER, FETCH, ZERO, SYS_READ, SYSCALL3, DUP, ONE, LT, ZBRANCH, 32, DROP
+	.int ZERO, ZERO, ZERO, SYS_EXIT, SYSCALL3, EXIT, KEY_BUFFER, FETCH, DUP, DUP, SUB, SWAP, SUB, SUB, KEY_BUFFTOP, STORE
+	.int BRANCH, -172, KEY_CURRKEY, FETCH, FETCHBYTE, KEY_CURRKEY, FETCH, INCR, KEY_CURRKEY, STORE, EXIT
 
 	.data
 	.align 4
@@ -572,41 +554,11 @@ _EMIT:
 emit_scratch:
 	.space 1		// scratch used by EMIT
 
-	defcode "WORD",4,,WORD
-	call _WORD
-	push %edi		// push base address
-	push %ecx		// push length
-	NEXT
-
-_WORD:
-	/* Search for first non-blank character.  Also skip \ comments. */
-1:
-	call _KEY		// get next key, returned in %eax
-	cmpb $'\\',%al		// start of a comment?
-	je 3f			// if so, skip the comment
-	cmpb $' ',%al
-	jbe 1b			// if so, keep looking
-
-	/* Search for the end of the word, storing chars as we go. */
-	mov $word_buffer,%edi	// pointer to return buffer
-2:
-	stosb			// add character to return buffer
-	call _KEY		// get next key, returned in %al
-	cmpb $' ',%al		// is blank?
-	ja 2b			// if not, keep looping
-
-	/* Return the word (well, the static buffer) and length. */
-	sub $word_buffer,%edi
-	mov %edi,%ecx		// return length of the word
-	mov $word_buffer,%edi	// return address of the word
-	ret
-
-	/* Code to skip \ comments to end of the current line. */
-3:
-	call _KEY
-	cmpb $'\n',%al		// end of line yet?
-	jne 3b
-	jmp 1b
+	defword "WORD",4,,WORD
+	.int ZERO, DROP, KEY, DUP, NINETYTWO, SUB, ZEQU, ZBRANCH, 36, DROP, KEY, DUP, TEN, SUB, ZEQU
+	.int ZBRANCH, -28, DUP, THIRTYTWO, SWAP, LT, ZBRANCH, -84, WORD_BUFFER, FETCH, SWAP
+	.int WORD_BUFFER, FETCH, SWAP, SWAP, STOREBYTE, INCR, DUP, KEY, DUP, THIRTYTWO, INCR
+	.int LT, ZBRANCH, -40, DROP, DROP, WORD_BUFFER, FETCH, SUB, WORD_BUFFER, FETCH, SWAP, EXIT
 
 	.data			// NB: easier to fit in the .data section
 	// A static buffer where WORD returns.  Subsequent calls
@@ -827,12 +779,8 @@ errmsgnl: .ascii "\n"
 interpret_is_lit:
 	.int 0			// Flag used to record if reading a literal
 
-	defcode "CHAR",4,,CHAR
-	call _WORD		// Returns %ecx = length, %edi = pointer to word.
-	xor %eax,%eax
-	movb (%edi),%al		// Get the first character of the word.
-	push %eax		// Push it onto the stack.
-	NEXT
+	defword "CHAR",4,,CHAR
+	.int WORD, DROP, FETCH, ffh, AND, EXIT ;
 
 	defcode "EXECUTE",7,,EXECUTE
 	pop %eax		// Get xt into %eax
