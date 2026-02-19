@@ -461,8 +461,8 @@ _EMIT:
 	mov $1,%ebx		// 1st param: stdout
 
 	// write needs the address of the byte to write
-	mov %al,emit_scratch
-	mov $emit_scratch,%ecx	// 2nd param: address
+	mov %al,var_EMIT_SCRATCH
+	mov $var_EMIT_SCRATCH,%ecx	// 2nd param: address
 
 	mov $1,%edx		// 3rd param: nbytes = 1
 
@@ -673,6 +673,7 @@ _COMMA:
 	defvar "NUMBER_CURLEN",13,,NUMBER_CURLEN
 	defvar "NUMBER_CURADDR",14,,NUMBER_CURADDR
 	defvar "NUMBER_CURSUM",13,,NUMBER_CURSUM
+	defvar "EMIT_SCRATCH",12,,EMIT_SCRATCH
 
 /* BUILT-IN CONSTANTS ---------------------------------------------------------------------- */
 
@@ -790,19 +791,10 @@ _COMMA:
 
 	.data
 	.align 4
-currkey:
-	.int buffer		// Current place in input buffer (next character to read).
-bufftop:
-	.int buffer		// Last valid data in input buffer + 1.
-interpret_is_lit:
-	.int 0			// Flag used to record if reading a literal
 	// A static buffer where WORD returns.  Subsequent calls
 	// overwrite this buffer.  Maximum word length is 32 chars.
 word_buffer:
 	.space 32
-emit_scratch:
-	.space 1		// scratch used by EMIT
-
 
 	.section .rodata
 errmsg: .ascii "PARSE ERROR: "
