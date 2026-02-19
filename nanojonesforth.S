@@ -94,20 +94,16 @@ DOCOL:
 	NEXT
 
 /* Assembler entry point. */
-	.text
+	defcode "start",5,,start // code_start is assembler entry point. 
 	.globl _start
 _start:
 	cld
-	mov %esp,var_S0		// Save the initial data stack pointer in FORTH variable S0.
-	mov $return_stack_top,%ebp // Initialise the return stack.
-	call set_up_data_segment
-
-	mov $cold_start,%esi	// Initialise interpreter.
+	mov $(COLD_START+4),%esi // Initialise interpreter.
 	NEXT			// Run interpreter!
 
-	.section .rodata
-cold_start:			// High-level code without a codeword.
-	.int QUIT
+	defword "COLD_START",10,,COLD_START
+	.int RZ, RSPSTORE, DSPFETCH, SZ, STORE, ZERO, DUP, DUP, DUP, DUP, SYS_BRK, SYSCALL3, DUP, HERE, STORE
+	.int INITIAL_DATA_SEGMENT_SIZE, ZERO, SWAP, SUB, SUB, SYS_BRK, SYSCALL3, DROP, QUIT
 
 /* Flags - these are discussed later. */
 	.set F_IMMED,0x80
@@ -449,6 +445,7 @@ cold_start:			// High-level code without a codeword.
 
 /* BUILT-IN CONSTANTS ---------------------------------------------------------------------- */
 
+	defconst "INITIAL_DATA_SEGMENT_SIZE",25,,INITIAL_DATA_SEGMENT_SIZE,65536
 	defconst "VERSION",7,,VERSION,JONES_VERSION
 	defconst "R0",2,,RZ,return_stack_top
 	defconst "DOCOL",5,,__DOCOL,DOCOL
@@ -821,17 +818,6 @@ interpret_is_lit:
 	NEXT
 
 	.text
-	.set INITIAL_DATA_SEGMENT_SIZE,65536
-set_up_data_segment:
-	xor %ebx,%ebx		// Call brk(0)
-	movl $__NR_brk,%eax
-	int $0x80
-	movl %eax,var_HERE	// Initialise HERE to point at beginning of data segment.
-	addl $INITIAL_DATA_SEGMENT_SIZE,%eax	// Reserve nn bytes of memory for initial data segment.
-	movl %eax,%ebx		// Call brk(HERE+INITIAL_DATA_SEGMENT_SIZE)
-	movl $__NR_brk,%eax
-	int $0x80
-	ret
 
 	.set RETURN_STACK_SIZE,8192
 	.set BUFFER_SIZE,4096
