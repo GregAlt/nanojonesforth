@@ -134,20 +134,8 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	push %eax
 	NEXT
 
-	defcode "2DUP",4,,TWODUP // duplicate top two elements of stack
-	mov (%esp),%eax
-	mov 4(%esp),%ebx
-	push %ebx
-	push %eax
-	NEXT
-
 	defcode "1+",2,,INCR
 	incl (%esp)		// increment top of stack
-	NEXT
-
-	defcode "+",1,,ADD
-	pop %eax		// get top of stack
-	addl %eax,(%esp)	// and add it to next word on stack
 	NEXT
 
 	defcode "-",1,,SUB
@@ -180,14 +168,6 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	pushl %eax
 	NEXT
 
-	defcode "0=",2,,ZEQU	// top of stack equals 0?
-	pop %eax
-	test %eax,%eax
-	setz %al
-	movzbl %al,%eax
-	pushl %eax
-	NEXT
-
         defcode "NAND",4,,NAND    // bitwise NAND
         pop %eax
         andl %eax,(%esp)
@@ -196,14 +176,6 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 
 	defcode "EXIT",4,,EXIT
 	POPRSP %esi		// pop return stack into %esi
-	NEXT
-
-	defcode "LIT",3,,LIT
-	// %esi points to the next command, but in this case it points to the next
-	// literal 32 bit integer.  Get that literal into %eax and increment %esi.
-	// On x86, it's a convenient single byte instruction!  (cf. NEXT macro)
-	lodsl
-	push %eax		// push the literal number on to stack
 	NEXT
 
 	defcode "!",1,,STORE
@@ -246,33 +218,6 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 
 	defcode "DSP!",4,,DSPSTORE
 	pop %esp
-	NEXT
-
-	defcode ",",1,,COMMA
-	pop %eax		// Code pointer to store.
-	movl var_HERE,%edi	// HERE
-	stosl			// Store it.
-	movl %edi,var_HERE	// Update HERE (incremented)
-	NEXT
-
-	defcode "[",1,F_IMMED,LBRAC
-	xor %eax,%eax
-	movl %eax,var_STATE	// Set STATE to 0.
-	NEXT
-
-	defcode "]",1,,RBRAC
-	movl $1,var_STATE	// Set STATE to 1.
-	NEXT
-
-	defcode "HIDDEN",6,,HIDDEN
-	pop %edi		// Dictionary entry.
-	addl $4,%edi		// Point to name/flags byte.
-	xorb $F_HIDDEN,(%edi)	// Toggle the HIDDEN bit.
-	NEXT
-
-	defcode "'",1,,TICK
-	lodsl			// Get the address of the next word and skip it.
-	pushl %eax		// Push it on the stack.
 	NEXT
 
 	defcode "BRANCH",6,,BRANCH
@@ -364,6 +309,34 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	defconst "O_NONBLOCK",10,,__O_NONBLOCK,04000
 
 /* defword compiled forth word definitions ------------------------------------------------- */
+
+	defword "2DUP",4,,TWODUP // duplicate top two elements of stack
+	.int DSPFETCH, INCR, INCR, INCR, INCR, FETCH, DSPFETCH, INCR, INCR, INCR, INCR, FETCH, EXIT
+
+	defword "+",1,,ADD
+	.int ZERO, SWAP, SUB, SUB, EXIT
+
+	defword "0=",2,,ZEQU	// top of stack equals 0?
+	.int DUP, ZERO, ONE, SUB, SWAP, LT, SWAP, ONE, LT, NAND, DUP, NAND, EXIT
+
+	defword "LIT",3,,LIT
+	.int RSPFETCH, FETCH, DUP, INCR, INCR, INCR, INCR, RSPFETCH, STORE, FETCH, EXIT
+
+	defword ",",1,,COMMA
+	.int HERE, FETCH, STORE, HERE, FETCH, INCR, INCR, INCR, INCR, HERE, STORE, EXIT
+
+	defword "[",1,F_IMMED,LBRAC
+	.int ZERO, STATE, STORE, EXIT
+
+	defword "]",1,,RBRAC
+	.int ONE, STATE, STORE, EXIT
+
+	defword "HIDDEN",6,,HIDDEN
+	.int INCR, INCR, INCR, INCR, DUP, FETCHBYTE, DUP, __F_HIDDEN, SWAP, __F_HIDDEN, NAND, DUP, NAND
+	.int SUB, SWAP, __F_HIDDEN, DUP, NAND, NAND, DUP, NAND, ADD, SWAP, STOREBYTE, EXIT
+
+	defword "'",1,,TICK
+	.int RSPFETCH, FETCH, DUP, INCR, INCR, INCR, INCR, RSPFETCH, STORE, FETCH, EXIT
 
 	defword "C@C!",4,,CCOPY
 	.int TWODUP, SWAP, FETCHBYTE, SWAP, STOREBYTE, INCR, SWAP, INCR, SWAP, EXIT
