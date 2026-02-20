@@ -459,16 +459,13 @@ _start:
 
 	defcode "EMIT",4,,EMIT
 	pop %eax
-	call _EMIT
-	NEXT
-_EMIT:
 	mov $1,%ebx		// 1st param: stdout
 	mov %al,var_EMIT_SCRATCH // write needs the address of the byte to write
 	mov $var_EMIT_SCRATCH,%ecx // 2nd param: address
 	mov $1,%edx		// 3rd param: nbytes = 1
 	mov $__NR_write,%eax	// write syscall
 	int $0x80
-	ret
+	NEXT
 
 	defcode "FIND",4,,FIND
 	pop %ecx		// %ecx = length
@@ -518,10 +515,6 @@ _FIND:
 
 	defcode ">CFA",4,,TCFA
 	pop %edi
-	call _TCFA
-	push %edi
-	NEXT
-_TCFA:
 	xor %eax,%eax
 	add $4,%edi		// Skip link pointer.
 	movb (%edi),%al		// Load flags+len into %al.
@@ -530,7 +523,8 @@ _TCFA:
 	add %eax,%edi		// Skip the name.
 	addl $3,%edi		// The codeword is 4-byte aligned.
 	andl $~3,%edi
-	ret
+	push %edi
+	NEXT
 
 	defcode "CREATE",6,,CREATE
 	// Get the name length and address.
@@ -557,13 +551,10 @@ _TCFA:
 
 	defcode ",",1,,COMMA
 	pop %eax		// Code pointer to store.
-	call _COMMA
-	NEXT
-_COMMA:
 	movl var_HERE,%edi	// HERE
 	stosl			// Store it.
 	movl %edi,var_HERE	// Update HERE (incremented)
-	ret
+	NEXT
 
 	defcode "[",1,F_IMMED,LBRAC
 	xor %eax,%eax
