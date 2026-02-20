@@ -507,19 +507,6 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	push %eax		// %eax = address of dictionary entry (or NULL)
 	NEXT
 
-	defcode ">CFA",4,,TCFA
-	pop %edi
-	xor %eax,%eax
-	add $4,%edi		// Skip link pointer.
-	movb (%edi),%al		// Load flags+len into %al.
-	inc %edi		// Skip flags+len byte.
-	andb $F_LENMASK,%al	// Just the length, not the flags.
-	add %eax,%edi		// Skip the name.
-	addl $3,%edi		// The codeword is 4-byte aligned.
-	andl $~3,%edi
-	push %edi
-	NEXT
-
 	defcode "CREATE",6,,CREATE
 	// Get the name length and address.
 	pop %ecx		// %ecx = length
@@ -701,6 +688,10 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	defconst "O_NONBLOCK",10,,__O_NONBLOCK,04000
 
 /* defword compiled forth word definitions ------------------------------------------------- */
+
+	defword ">CFA",4,,TCFA
+	.int LIT, 4, ADD, DUP, FETCHBYTE, SWAP, INCR, SWAP, LIT, F_LENMASK, NAND, DUP, NAND, ADD, INCR, INCR
+        .int INCR, LIT, -4, NAND, DUP, NAND, EXIT
 
 	defword "KEY",3,,KEY
 	.int KEY_CURRKEY, FETCH, KEY_BUFFTOP, FETCH, SWAP, INCR, LT, ZBRANCH, 132, KEY_BUFFER, KEY_CURRKEY, STORE
