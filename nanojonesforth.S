@@ -646,9 +646,8 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	defvar "LATEST",6,,LATEST,name_QUIT // QUIT must be last in built-in dictionary
 	defvar "S0",2,,SZ
 	defvar "BASE",4,,BASE,10
-	defvar "WB",2,,WB,,4,32
+	defvar "WORD_BUFFER",11,,WORD_BUFFER,,4,32
 	defvar "RET_STACK",9,,RETURN_STACK,,4096,8192
-	defvar "WORD_BUFFER",11,,WORD_BUFFER,var_WB
 	defvar "KB",2,,KB,,4096,4096
 	defvar "KEY_CURRKEY",11,,KEY_CURRKEY,var_KB
 	defvar "KEY_BUFFTOP",11,,KEY_BUFFTOP,var_KB
@@ -684,7 +683,6 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	defconst "FIFTYEIGHT",10,,FIFTYEIGHT,58
 	defconst "SIXTYFOUR",9,,SIXTYFOUR,64
 	defconst "NINETYTWO",9,,NINETYTWO,92
-	defconst "ffh",3,,ffh,255
 
 	defconst "SYS_EXIT",8,,SYS_EXIT,__NR_exit
 	defconst "SYS_OPEN",8,,SYS_OPEN,__NR_open
@@ -713,9 +711,9 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 
 	defword "WORD",4,,WORD
 	.int ZERO, DROP, KEY, DUP, NINETYTWO, SUB, ZEQU, ZBRANCH, 36, DROP, KEY, DUP, TEN, SUB, ZEQU
-	.int ZBRANCH, -28, DUP, THIRTYTWO, SWAP, LT, ZBRANCH, -84, WORD_BUFFER, FETCH, SWAP
-	.int WORD_BUFFER, FETCH, SWAP, SWAP, STOREBYTE, INCR, DUP, KEY, DUP, THIRTYTWO, INCR
-	.int LT, ZBRANCH, -40, DROP, DROP, WORD_BUFFER, FETCH, SUB, WORD_BUFFER, FETCH, SWAP, EXIT
+	.int ZBRANCH, -28, DUP, THIRTYTWO, SWAP, LT, ZBRANCH, -84, WORD_BUFFER, SWAP
+	.int WORD_BUFFER, SWAP, SWAP, STOREBYTE, INCR, DUP, KEY, DUP, THIRTYTWO, INCR
+	.int LT, ZBRANCH, -40, DROP, DROP, WORD_BUFFER, SUB, WORD_BUFFER, SWAP, EXIT
 
 	defword "NUMBER",6,,NUMBER
 	.int NUMBER_CURLEN, STORE, NUMBER_CURADDR, STORE, ZERO, NUMBER_CURSUM, STORE, ZERO 
@@ -770,7 +768,7 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
         .int EXECUTE, BRANCH, 4, BRANCH, 36, INTERPRET_IS_LIT, FETCH, ZBRANCH, 16, TICK, LIT, COMMA, COMMA, EXIT
 
 	defword "CHAR",4,,CHAR
-	.int WORD, DROP, FETCH, ffh, AND, EXIT ;
+	.int WORD, DROP, FETCH, LIT, 255, AND, EXIT ;
 
 	// QUIT must not return (ie. must not call EXIT).
 	defword "QUIT",4,,QUIT
