@@ -469,11 +469,6 @@ _start:
 	defcode "FIND",4,,FIND
 	pop %ecx		// %ecx = length
 	pop %edi		// %edi = address
-	call _FIND
-	push %eax		// %eax = address of dictionary entry (or NULL)
-	NEXT
-
-_FIND:
 	push %esi		// Save %esi so we can use it in string comparison.
 
 	// Now we start searching backwards through the dictionary for this word.
@@ -502,7 +497,8 @@ _FIND:
 	// The strings are the same - return the header pointer in %eax
 	pop %esi
 	mov %edx,%eax
-	ret
+	push %eax		// %eax = address of dictionary entry (or NULL)
+	NEXT
 
 2:	mov (%edx),%edx		// Move back through the link field to the previous word
 	jmp 1b			// .. and loop.
@@ -510,7 +506,8 @@ _FIND:
 4:	// Not found.
 	pop %esi
 	xor %eax,%eax		// Return zero to indicate not found.
-	ret
+	push %eax		// %eax = address of dictionary entry (or NULL)
+	NEXT
 
 	defcode ">CFA",4,,TCFA
 	pop %edi
