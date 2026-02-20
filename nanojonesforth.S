@@ -71,7 +71,7 @@ name_\label :
 	.align 4		// padding to next 4 byte boundary
 	.globl \label
 \label :
-	.int DOCOL		// codeword - the interpreter
+	.int code_DOCOL		// codeword - the interpreter
 	// list of word pointers follow
 	.endm
 
@@ -106,8 +106,7 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 
 /* defcode assembley word definitions ------------------------------------------------------ */
 
-	defcode "DOCOL",5,,_DOCOL // DOCOL - the interpreter! 
-DOCOL:
+	defcode "DOCOL",5,,DOCOL // DOCOL - the interpreter! 
 	lea -4(%ebp),%ebp	// push %esi on to return stack
 	movl %esi,(%ebp)
 	addl $4,%eax            // %eax points to codeword, so make
@@ -674,7 +673,7 @@ _FIND:
 	defconst "INITIAL_DATA_SEGMENT_SIZE",25,,INITIAL_DATA_SEGMENT_SIZE,65536
 	defconst "VERSION",7,,VERSION,JONES_VERSION
 	defconst "R0",2,,RZ,var_RET_STACK+size_RET_STACK
-	defconst "DOCOL",5,,__DOCOL,DOCOL
+	defconst "DOCOL",5,,__DOCOL,code_DOCOL
 	defconst "F_IMMED",7,,__F_IMMED,F_IMMED
 	defconst "F_HIDDEN",8,,__F_HIDDEN,F_HIDDEN
 	defconst "F_LENMASK",9,,__F_LENMASK,F_LENMASK
@@ -744,7 +743,7 @@ _FIND:
 	defword ":",1,,COLON
 	.int WORD		// Get the name of the new word
 	.int CREATE		// CREATE the dictionary entry / header
-	.int LIT, DOCOL, COMMA	// Append DOCOL  (the codeword).
+	.int LIT, code_DOCOL, COMMA	// Append DOCOL  (the codeword).
 	.int LATEST, FETCH, HIDDEN // Make the word hidden (see below for definition).
 	.int RBRAC		// Go into compile mode.
 	.int EXIT		// Return from the function.
