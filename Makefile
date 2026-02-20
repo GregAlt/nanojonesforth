@@ -10,6 +10,10 @@ all:	nanojonesforth
 nanojonesforth: nanojonesforth.S
 	gcc -e code_start -I /usr/include/x86_64-linux-gnu -m32 -nostdlib -static $(BUILD_ID_NONE) -o $@ $<
 
+tiny: nanojonesforth.S
+	gcc -s -e code_start -I /usr/include/x86_64-linux-gnu -nostartfiles -no-pie -Wl,-z,noseparate-code,-N -m32 -nostdlib -static $(BUILD_ID_NONE) -o nanojonesforth $<
+	strip -R .note.gnu.build-id --strip-section-headers nanojonesforth
+
 jonesforth: jonesforth.S
 	gcc -I /usr/include/x86_64-linux-gnu -m32 -nostdlib -static $(BUILD_ID_NONE) -o $@ $<
 
