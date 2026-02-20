@@ -464,49 +464,6 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	int $0x80
 	NEXT
 
-	defcode "FIND",4,,FIND
-	pop %ecx		// %ecx = length
-	pop %edi		// %edi = address
-	push %esi		// Save %esi so we can use it in string comparison.
-
-	// Now we start searching backwards through the dictionary for this word.
-	mov var_LATEST,%edx	// LATEST points to name header of the latest word in the dictionary
-1:	test %edx,%edx		// NULL pointer?  (end of the linked list)
-	je 4f
-
-	// Compare the length expected and the length of the word.
-	// Note that if the F_HIDDEN flag is set on the word, then by a bit of trickery
-	// this won't pick the word (the length will appear to be wrong).
-	xor %eax,%eax
-	movb 4(%edx),%al	// %al = flags+length field
-	andb $(F_HIDDEN|F_LENMASK),%al // %al = name length
-	cmpb %cl,%al		// Length is the same?
-	jne 2f
-
-	// Compare the strings in detail.
-	push %ecx		// Save the length
-	push %edi		// Save the address (repe cmpsb will move this pointer)
-	lea 5(%edx),%esi	// Dictionary string we are checking against.
-	repe cmpsb		// Compare the strings.
-	pop %edi
-	pop %ecx
-	jne 2f			// Not the same.
-
-	// The strings are the same - return the header pointer in %eax
-	pop %esi
-	mov %edx,%eax
-	push %eax		// %eax = address of dictionary entry (or NULL)
-	NEXT
-
-2:	mov (%edx),%edx		// Move back through the link field to the previous word
-	jmp 1b			// .. and loop.
-
-4:	// Not found.
-	pop %esi
-	xor %eax,%eax		// Return zero to indicate not found.
-	push %eax		// %eax = address of dictionary entry (or NULL)
-	NEXT
-
 	defcode ",",1,,COMMA
 	pop %eax		// Code pointer to store.
 	movl var_HERE,%edi	// HERE
@@ -624,6 +581,8 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	defvar "NUMBER_CURADDR",14,,NUMBER_CURADDR
 	defvar "NUMBER_CURSUM",13,,NUMBER_CURSUM
 	defvar "EMIT_SCRATCH",12,,EMIT_SCRATCH
+	defvar "CMPSTRS_LEN",11,,CMPSTRS_LEN
+	defvar "FIND_CURDICT",12,,FIND_CURDICT
 
 /* BUILT-IN CONSTANTS ---------------------------------------------------------------------- */
 
@@ -701,6 +660,19 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	.int FETCH, INCR, INCR, INCR, INCR, INCR, DUP, DUP, SUB, SWAP, SUB, SUB, INCR, INCR, INCR
 	.int ZERO, INCR, INCR, INCR, DUP, NAND, NAND, DUP, NAND, HERE, FETCH, LATEST, STORE, HERE
 	.int STORE, EXIT
+
+	defword "CMPSTRS",7,,CMPSTRS
+	.int CMPSTRS_LEN, STORE, CMPSTRS_LEN, FETCH, ZBRANCH, 100, TWODUP, FETCHBYTE, SWAP, FETCHBYTE
+	.int SWAP, SUB, ZBRANCH, 20, DROP, DROP, ZERO, EXIT, INCR, SWAP, INCR, SWAP, CMPSTRS_LEN, FETCH
+	.int ONE, SUB, CMPSTRS_LEN, STORE, BRANCH, -108, DROP, DROP, CMPSTRS_LEN, FETCH, INCR, EXIT
+
+	defword "FIND",4,,FIND
+	.int TWODUP, LATEST, FETCH, FIND_CURDICT, STORE, FIND_CURDICT, FETCH, ZBRANCH, 204, DUP
+	.int FIND_CURDICT, FETCH, INCR, INCR, INCR, INCR, FETCHBYTE, __F_HIDDEN, __F_LENMASK, DUP, DUP
+	.int SUB, SWAP, SUB, SUB, NAND, DUP, NAND, SUB, ZEQU, ZBRANCH, 72, FIND_CURDICT, FETCH, INCR
+	.int INCR, INCR, INCR, INCR, SWAP, CMPSTRS,  ZBRANCH, 24, DROP, DROP, FIND_CURDICT, FETCH, EXIT
+	.int TWODUP, DROP, DROP, TWODUP, FIND_CURDICT, FETCH, FETCH, FIND_CURDICT, STORE, BRANCH, -212
+	.int DROP, DROP, DROP, DROP, ZERO, EXIT
 
 	defword ">DFA",4,,TDFA
 	.int TCFA		// >CFA		(get code field address)
