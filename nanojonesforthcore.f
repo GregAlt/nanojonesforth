@@ -8,6 +8,13 @@
 : = - 0= ;
 : <> = 0= ;
 : > SWAP < ;
+: <= > 0= ;
+: >= < 0= ;
+: 0<> 0= 0= ;
+: 0< 0 < ;
+: 0> 0 > ;
+: 0<= 0> 0= ;
+: 0>= 0< 0= ;
 : IF IMMEDIATE ' 0BRANCH , HERE @ 0 , ;
 : THEN IMMEDIATE DUP HERE @ SWAP - SWAP ! ;
 : ?DUP DSP@ @ IF DUP THEN ;
