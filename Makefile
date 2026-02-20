@@ -5,16 +5,22 @@ BUILD_ID_NONE :=
 
 SHELL	:= /bin/bash
 
-all:	jonesforth
+all:	nanojonesforth
 
-jonesforth: nanojonesforth.S
+nanojonesforth: nanojonesforth.S
 	gcc -e code_start -I /usr/include/x86_64-linux-gnu -m32 -nostdlib -static $(BUILD_ID_NONE) -o $@ $<
 
-run:
+jonesforth: jonesforth.S
+	gcc -I /usr/include/x86_64-linux-gnu -m32 -nostdlib -static $(BUILD_ID_NONE) -o $@ $<
+
+run: nanojonesforth
+	cat jonesforth.f $(PROG) - | ./nanojonesforth
+
+run-orig: jonesforth
 	cat jonesforth.f $(PROG) - | ./jonesforth
 
 clean:
-	rm -f jonesforth perf_dupdrop *~ core .test_*
+	rm -f nanojonesforth jonesforth perf_dupdrop *~ core .test_*
 
 # Tests.
 
@@ -22,11 +28,11 @@ TESTS	:= $(patsubst %.f,%.test,$(wildcard test_*.f))
 
 test check: $(TESTS)
 
-test_%.test: test_%.f jonesforth
+test_%.test: test_%.f nanojonesforth
 	@echo -n "$< ... "
 	@rm -f .$@
 	@cat <(echo ': TEST-MODE ;') jonesforth.f $< <(echo 'TEST') | \
-	  ./jonesforth 2>&1 | \
+	  ./nanojonesforth 2>&1 | \
 	  sed 's/DSP=[0-9]*//g' > .$@
 	@diff -u .$@ $<.out
 	@rm -f .$@
