@@ -507,29 +507,6 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	push %eax		// %eax = address of dictionary entry (or NULL)
 	NEXT
 
-	defcode "CREATE",6,,CREATE
-	// Get the name length and address.
-	pop %ecx		// %ecx = length
-	pop %ebx		// %ebx = address of name
-	// Link pointer.
-	movl var_HERE,%edi	// %edi is the address of the header
-	movl var_LATEST,%eax	// Get link pointer
-	stosl			// and store it in the header.
-	// Length byte and the word itself.
-	mov %cl,%al		// Get the length.
-	stosb			// Store the length/flags byte.
-	push %esi
-	mov %ebx,%esi		// %esi = word
-	rep movsb		// Copy the word
-	pop %esi
-	addl $3,%edi		// Align to next 4 byte boundary.
-	andl $~3,%edi
-	// Update LATEST and HERE.
-	movl var_HERE,%eax
-	movl %eax,var_LATEST
-	movl %edi,var_HERE
-	NEXT
-
 	defcode ",",1,,COMMA
 	pop %eax		// Code pointer to store.
 	movl var_HERE,%edi	// HERE
@@ -717,6 +694,13 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	.int NUMBER_CURSUM, FETCH, SWAP, SUB, NUMBER_CURSUM, STORE, ZEQU, NUMBER_CURLEN, FETCH, MUL 
 	.int ZEQU, ZBRANCH, -260, ZBRANCH, 40, NUMBER_CURSUM, FETCH, DUP, DUP, SUB, SWAP, SUB 
 	.int NUMBER_CURSUM, STORE, NUMBER_CURSUM, FETCH, NUMBER_CURLEN, FETCH, EXIT
+
+	defword "CREATE",6,,CREATE
+	.int TWODUP, DUP, LATEST, FETCH, HERE, FETCH, STORE, HERE, FETCH, INCR, INCR, INCR, INCR
+	.int STOREBYTE, HERE, FETCH, INCR, INCR, INCR, INCR, INCR, SWAP, CMOVE, SWAP, DROP, HERE
+	.int FETCH, INCR, INCR, INCR, INCR, INCR, DUP, DUP, SUB, SWAP, SUB, SUB, INCR, INCR, INCR
+	.int ZERO, INCR, INCR, INCR, DUP, NAND, NAND, DUP, NAND, HERE, FETCH, LATEST, STORE, HERE
+	.int STORE, EXIT
 
 	defword ">DFA",4,,TDFA
 	.int TCFA		// >CFA		(get code field address)
