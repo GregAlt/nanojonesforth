@@ -145,10 +145,6 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	incl (%esp)		// increment top of stack
 	NEXT
 
-	defcode "4+",2,,INCR4
-	addl $4,(%esp)		// add 4 to top of stack
-	NEXT
-
 	defcode "+",1,,ADD
 	pop %eax		// get top of stack
 	addl %eax,(%esp)	// and add it to next word on stack
@@ -235,24 +231,6 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	push %eax		// push value onto stack
 	NEXT
 
-	defcode "C@C!",4,,CCOPY
-	movl 4(%esp),%ebx	// source address
-	movb (%ebx),%al		// get source character
-	pop %edi		// destination address
-	stosb			// copy to destination
-	push %edi		// increment destination address
-	incl 4(%esp)		// increment source address
-	NEXT
-
-	defcode "CMOVE",5,,CMOVE
-	mov %esi,%edx		// preserve %esi
-	pop %ecx		// length
-	pop %edi		// destination address
-	pop %esi		// source address
-	rep movsb		// copy source to destination
-	mov %edx,%esi		// restore %esi
-	NEXT
-
 	defcode "RSP@",4,,RSPFETCH
 	push %ebp
 	NEXT
@@ -270,16 +248,6 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	pop %esp
 	NEXT
 
-	defcode "EMIT",4,,EMIT
-	pop %eax
-	mov $1,%ebx		// 1st param: stdout
-	mov %al,var_EMIT_SCRATCH // write needs the address of the byte to write
-	mov $var_EMIT_SCRATCH,%ecx // 2nd param: address
-	mov $1,%edx		// 3rd param: nbytes = 1
-	mov $__NR_write,%eax	// write syscall
-	int $0x80
-	NEXT
-
 	defcode ",",1,,COMMA
 	pop %eax		// Code pointer to store.
 	movl var_HERE,%edi	// HERE
@@ -294,12 +262,6 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 
 	defcode "]",1,,RBRAC
 	movl $1,var_STATE	// Set STATE to 1.
-	NEXT
-
-	defcode "IMMEDIATE",9,F_IMMED,IMMEDIATE
-	movl var_LATEST,%edi	// LATEST word.
-	addl $4,%edi		// Point to name/flags byte.
-	xorb $F_IMMED,(%edi)	// Toggle the IMMED bit.
 	NEXT
 
 	defcode "HIDDEN",6,,HIDDEN
@@ -358,9 +320,9 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	defvar "NUMBER_CURLEN",13,,NUMBER_CURLEN
 	defvar "NUMBER_CURADDR",14,,NUMBER_CURADDR
 	defvar "NUMBER_CURSUM",13,,NUMBER_CURSUM
-	defvar "EMIT_SCRATCH",12,,EMIT_SCRATCH
 	defvar "CMPSTRS_LEN",11,,CMPSTRS_LEN
 	defvar "FIND_CURDICT",12,,FIND_CURDICT
+	defvar "CMOVE_COUNT",11,,CMOVE_COUNT
 
 /* BUILT-IN CONSTANTS ---------------------------------------------------------------------- */
 
@@ -402,6 +364,13 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	defconst "O_NONBLOCK",10,,__O_NONBLOCK,04000
 
 /* defword compiled forth word definitions ------------------------------------------------- */
+
+	defword "C@C!",4,,CCOPY
+	.int TWODUP, SWAP, FETCHBYTE, SWAP, STOREBYTE, INCR, SWAP, INCR, SWAP, EXIT
+
+	defword "CMOVE",5,,CMOVE
+	.int CMOVE_COUNT, STORE, CMOVE_COUNT, FETCH, DUP, ZBRANCH, 36, ONE, SUB, CMOVE_COUNT, STORE, CCOPY
+	.int ZERO, ZBRANCH, -48, DROP, DROP, DROP, EXIT
 
 	defword ">CFA",4,,TCFA
 	.int LIT, 4, ADD, DUP, FETCHBYTE, SWAP, INCR, SWAP, LIT, F_LENMASK, NAND, DUP, NAND, ADD, INCR, INCR
@@ -454,7 +423,7 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 
 	defword ">DFA",4,,TDFA
 	.int TCFA		// >CFA		(get code field address)
-	.int INCR4		// 4+		(add 4 to it to get to next word)
+	.int INCR, INCR, INCR, INCR // 4+	(add 4 to it to get to next word)
 	.int EXIT		// EXIT		(return from FORTH word)
 
 	defword ":",1,,COLON
