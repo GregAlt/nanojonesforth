@@ -222,18 +222,6 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	push %eax		// push value onto stack
 	NEXT
 
-	defcode "+!",2,,ADDSTORE
-	pop %ebx		// address
-	pop %eax		// the amount to add
-	addl %eax,(%ebx)	// add it
-	NEXT
-
-	defcode "-!",2,,SUBSTORE
-	pop %ebx		// address
-	pop %eax		// the amount to subtract
-	subl %eax,(%ebx)	// add it
-	NEXT
-
 	defcode "C!",2,,STOREBYTE
 	pop %ebx		// address to store at
 	pop %eax		// data to store there
@@ -265,26 +253,12 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	mov %edx,%esi		// restore %esi
 	NEXT
 
-	defcode ">R",2,,TOR
-	pop %eax		// pop parameter stack into %eax
-	PUSHRSP %eax		// push it on to the return stack
-	NEXT
-
-	defcode "R>",2,,FROMR
-	POPRSP %eax		// pop return stack on to %eax
-	push %eax		// and push on to parameter stack
-	NEXT
-
 	defcode "RSP@",4,,RSPFETCH
 	push %ebp
 	NEXT
 
 	defcode "RSP!",4,,RSPSTORE
 	pop %ebp
-	NEXT
-
-	defcode "RDROP",5,,RDROP
-	addl $4,%ebp		// pop return stack and throw away
 	NEXT
 
 	defcode "DSP@",4,,DSPFETCH
@@ -350,23 +324,6 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	lodsl			// otherwise we need to skip the offset
 	NEXT
 
-	defcode "LITSTRING",9,,LITSTRING
-	lodsl			// get the length of the string
-	push %esi		// push the address of the start of the string
-	push %eax		// push it on the stack
-	addl %eax,%esi		// skip past the string
- 	addl $3,%esi		// but round up to next 4 byte boundary
-	andl $~3,%esi
-	NEXT
-
-	defcode "TELL",4,,TELL
-	mov $1,%ebx		// 1st param: stdout
-	pop %edx		// 3rd param: length of string
-	pop %ecx		// 2nd param: address of string
-	mov $__NR_write,%eax	// write syscall
-	int $0x80
-	NEXT
-
 	defcode "EXECUTE",7,,EXECUTE
 	pop %eax		// Get xt into %eax
 	jmp *(%eax)		// and jump to it.
@@ -377,27 +334,6 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	pop %ebx		// First parameter.
 	pop %ecx		// Second parameter
 	pop %edx		// Third parameter
-	int $0x80
-	push %eax		// Result (negative for -errno)
-	NEXT
-
-	defcode "SYSCALL2",8,,SYSCALL2
-	pop %eax		// System call number (see <asm/unistd.h>)
-	pop %ebx		// First parameter.
-	pop %ecx		// Second parameter
-	int $0x80
-	push %eax		// Result (negative for -errno)
-	NEXT
-
-	defcode "SYSCALL1",8,,SYSCALL1
-	pop %eax		// System call number (see <asm/unistd.h>)
-	pop %ebx		// First parameter.
-	int $0x80
-	push %eax		// Result (negative for -errno)
-	NEXT
-
-	defcode "SYSCALL0",8,,SYSCALL0
-	pop %eax		// System call number (see <asm/unistd.h>)
 	int $0x80
 	push %eax		// Result (negative for -errno)
 	NEXT
