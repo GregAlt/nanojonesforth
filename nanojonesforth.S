@@ -192,46 +192,11 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	pushl %eax
 	NEXT
 
-	defcode "0<=",3,,ZLE
-	pop %eax
-	test %eax,%eax
-	setle %al
-	movzbl %al,%eax
-	pushl %eax
-	NEXT
-
-	defcode "0>=",3,,ZGE
-	pop %eax
-	test %eax,%eax
-	setge %al
-	movzbl %al,%eax
-	pushl %eax
-	NEXT
-
         defcode "NAND",4,,NAND    // bitwise NAND
         pop %eax
         andl %eax,(%esp)
 	notl (%esp)
         NEXT
-
-	defcode "AND",3,,AND	// bitwise AND
-	pop %eax
-	andl %eax,(%esp)
-	NEXT
-
-	defcode "OR",2,,OR	// bitwise OR
-	pop %eax
-	orl %eax,(%esp)
-	NEXT
-
-	defcode "XOR",3,,XOR	// bitwise XOR
-	pop %eax
-	xorl %eax,(%esp)
-	NEXT
-
-	defcode "INVERT",6,,INVERT // this is the FORTH bitwise "NOT" function (cf. NEGATE and NOT)
-	notl (%esp)
-	NEXT
 
 	defcode "EXIT",4,,EXIT
 	POPRSP %esi		// pop return stack into %esi
@@ -591,7 +556,7 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
         .int EXECUTE, BRANCH, 4, BRANCH, 36, INTERPRET_IS_LIT, FETCH, ZBRANCH, 16, TICK, LIT, COMMA, COMMA, EXIT
 
 	defword "CHAR",4,,CHAR
-	.int WORD, DROP, FETCH, LIT, 255, AND, EXIT ;
+	.int WORD, DROP, FETCH, LIT, 255, NAND, DUP, NAND, EXIT ;
 
 	// QUIT must not return (ie. must not call EXIT).
 	defword "QUIT",4,,QUIT
