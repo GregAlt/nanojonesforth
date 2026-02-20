@@ -134,32 +134,9 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	push %eax
 	NEXT
 
-	defcode "OVER",4,,OVER
+	defcode "OVEr",4,,OVEr
 	mov 4(%esp),%eax	// get the second element of stack
 	push %eax		// and push it on top
-	NEXT
-
-	defcode "ROT",3,,ROT
-	pop %eax
-	pop %ebx
-	pop %ecx
-	push %ebx
-	push %eax
-	push %ecx
-	NEXT
-
-	defcode "-ROT",4,,NROT
-	pop %eax
-	pop %ebx
-	pop %ecx
-	push %eax
-	push %ecx
-	push %ebx
-	NEXT
-
-	defcode "2DROP",5,,TWODROP // drop top two elements of stack
-	pop %eax
-	pop %eax
 	NEXT
 
 	defcode "2DUP",4,,TWODUP // duplicate top two elements of stack
@@ -167,17 +144,6 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	mov 4(%esp),%ebx
 	push %ebx
 	push %eax
-	NEXT
-
-	defcode "2SWAP",5,,TWOSWAP // swap top two pairs of elements of stack
-	pop %eax
-	pop %ebx
-	pop %ecx
-	pop %edx
-	push %ebx
-	push %eax
-	push %edx
-	push %ecx
 	NEXT
 
 	defcode "?DUP",4,,QDUP	// duplicate top of stack if non-zero

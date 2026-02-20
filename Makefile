@@ -18,7 +18,7 @@ jonesforth: jonesforth.S
 	gcc -I /usr/include/x86_64-linux-gnu -m32 -nostdlib -static $(BUILD_ID_NONE) -o $@ $<
 
 run: nanojonesforth
-	cat jonesforth.f $(PROG) - | ./nanojonesforth
+	cat nanojonesforthcore.f jonesforth.f $(PROG) - | ./nanojonesforth
 
 run-orig: jonesforth
 	cat jonesforth.f $(PROG) - | ./jonesforth
@@ -35,7 +35,7 @@ test check: $(TESTS)
 test_%.test: test_%.f nanojonesforth
 	@echo -n "$< ... "
 	@rm -f .$@
-	@cat <(echo ': TEST-MODE ;') jonesforth.f $< <(echo 'TEST') | \
+	@cat nanojonesforthcore.f testmode.f jonesforth.f $< <(echo 'TEST') | \
 	  ./nanojonesforth 2>&1 | \
 	  sed 's/DSP=[0-9]*//g' > .$@
 	@diff -u .$@ $<.out
