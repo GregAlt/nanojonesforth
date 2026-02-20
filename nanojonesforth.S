@@ -114,8 +114,6 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	NEXT
 
 	defcode "start",5,,start // code_start is assembler entry point. 
-	.globl _start
-_start:
 	cld
 	mov $(COLD_START+4),%esi // Initialise interpreter.
 	NEXT			// Run interpreter!

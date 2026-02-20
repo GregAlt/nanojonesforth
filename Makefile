@@ -8,7 +8,7 @@ SHELL	:= /bin/bash
 all:	jonesforth
 
 jonesforth: nanojonesforth.S
-	gcc -I /usr/include/x86_64-linux-gnu -m32 -nostdlib -static $(BUILD_ID_NONE) -o $@ $<
+	gcc -e code_start -I /usr/include/x86_64-linux-gnu -m32 -nostdlib -static $(BUILD_ID_NONE) -o $@ $<
 
 run:
 	cat jonesforth.f $(PROG) - | ./jonesforth
