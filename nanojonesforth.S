@@ -1,3 +1,22 @@
+/* NanoJonesForth is a project to shrink the assembly language from jonesforth,
+   moving words into forth source while maintaining compatibility.
+
+   I'm trying to balance a few somewhat conflicting goals:
+   - Minimal nanojonesforth.S file size
+   - Simple and straightforward nanojonesforth.S file (no obfuscations)
+   - Minimal stripped .elf result
+   - No assembly language outside of forth definitions
+   - Minimal number of defcode words
+   - No complex defcode words
+   - Minimal number of defvar and defconst words
+   - After reducing defcode words, minimal number of defword compiled forth words
+   - Good performance is not a goal, but I'll avoid gratuitous bad performance
+   - Compatibility with jonesforth, including all tests passing
+       (with minor adjustments for specific offsets in exception and stack tests)
+   - No handcrafted .elf - the elf will be built with standard tools and stripped
+   
+*/
+
 /*	A sometimes minimal FORTH compiler and tutorial for Linux / i386 systems. -*- asm -*-
 	By Richard W.M. Jones <rich@annexia.org> http://annexia.org/forth
 	This is PUBLIC DOMAIN (see public domain release statement below).
@@ -15,13 +34,12 @@
 //#include <asm-i386/unistd.h>	// you might need this instead
 #include <asm/unistd.h>
 
-/* NEXT macro. */
+/* Macro definitions ----------------------------------------------------------------------- */
 	.macro NEXT
 	lodsl
 	jmp *(%eax)
 	.endm
 
-/* Macros to deal with the return stack. */
 	.macro PUSHRSP reg
 	lea -4(%ebp),%ebp	// push reg on to return stack
 	movl \reg,(%ebp)
@@ -86,7 +104,8 @@ code_\label :			// assembler code follows
 var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	.endm
 
-/* DOCOL - the interpreter! */
+/* defcode assembley word definitions ------------------------------------------------------ */
+
 	defcode "DOCOL",5,,_DOCOL // DOCOL - the interpreter! 
 DOCOL:
 	lea -4(%ebp),%ebp	// push %esi on to return stack
@@ -95,19 +114,12 @@ DOCOL:
 	movl %eax,%esi          // %esi point to first data word
 	NEXT
 
-/* Assembler entry point. */
 	defcode "start",5,,start // code_start is assembler entry point. 
 	.globl _start
 _start:
 	cld
 	mov $(COLD_START+4),%esi // Initialise interpreter.
 	NEXT			// Run interpreter!
-
-/*
-	Now some easy FORTH primitives.  These are written in assembly for speed.  If you understand
-	i386 assembly language then it is worth reading these.  However if you don't understand assembly
-	you can skip the details.
-*/
 
 	defcode "DROP",4,,DROP
 	pop %eax		// drop top of stack
@@ -396,7 +408,6 @@ _start:
 	push %eax		// push value onto stack
 	NEXT
 
-/* C@C! is a useful byte copy primitive. */
 	defcode "C@C!",4,,CCOPY
 	movl 4(%esp),%ebx	// source address
 	movb (%ebx),%al		// get source character
@@ -406,7 +417,6 @@ _start:
 	incl 4(%esp)		// increment source address
 	NEXT
 
-/* and CMOVE is a block copy operation. */
 	defcode "CMOVE",5,,CMOVE
 	mov %esi,%edx		// preserve %esi
 	pop %ecx		// length
@@ -415,8 +425,6 @@ _start:
 	rep movsb		// copy source to destination
 	mov %edx,%esi		// restore %esi
 	NEXT
-
-/* RETURN STACK ---------------------------------------------------------------------- */
 
 	defcode ">R",2,,TOR
 	pop %eax		// pop parameter stack into %eax
@@ -440,8 +448,6 @@ _start:
 	addl $4,%ebp		// pop return stack and throw away
 	NEXT
 
-/* PARAMETER (DATA) STACK ---------------------------------------------------------------------- */
-
 	defcode "DSP@",4,,DSPFETCH
 	mov %esp,%eax
 	push %eax
@@ -451,21 +457,15 @@ _start:
 	pop %esp
 	NEXT
 
-/* INPUT AND OUTPUT ---------------------------------------------------------------------- */
-
 	defcode "EMIT",4,,EMIT
 	pop %eax
 	call _EMIT
 	NEXT
 _EMIT:
 	mov $1,%ebx		// 1st param: stdout
-
-	// write needs the address of the byte to write
-	mov %al,var_EMIT_SCRATCH
-	mov $var_EMIT_SCRATCH,%ecx	// 2nd param: address
-
+	mov %al,var_EMIT_SCRATCH // write needs the address of the byte to write
+	mov $var_EMIT_SCRATCH,%ecx // 2nd param: address
 	mov $1,%edx		// 3rd param: nbytes = 1
-
 	mov $__NR_write,%eax	// write syscall
 	int $0x80
 	ret
@@ -718,6 +718,7 @@ _COMMA:
 	defconst "O_APPEND",8,,__O_APPEND,02000
 	defconst "O_NONBLOCK",10,,__O_NONBLOCK,04000
 
+/* defword compiled forth word definitions ------------------------------------------------- */
 
 	defword "KEY",3,,KEY
 	.int KEY_CURRKEY, FETCH, KEY_BUFFTOP, FETCH, SWAP, INCR, LT, ZBRANCH, 144, KEY_BUFFER, FETCH, KEY_CURRKEY, STORE
