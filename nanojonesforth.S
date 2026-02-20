@@ -134,11 +134,6 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	push %eax
 	NEXT
 
-	defcode "OVEr",4,,OVEr
-	mov 4(%esp),%eax	// get the second element of stack
-	push %eax		// and push it on top
-	NEXT
-
 	defcode "2DUP",4,,TWODUP // duplicate top two elements of stack
 	mov (%esp),%eax
 	mov 4(%esp),%ebx
@@ -146,27 +141,12 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	push %eax
 	NEXT
 
-	defcode "?DUP",4,,QDUP	// duplicate top of stack if non-zero
-	movl (%esp),%eax
-	test %eax,%eax
-	jz 1f
-	push %eax
-1:	NEXT
-
 	defcode "1+",2,,INCR
 	incl (%esp)		// increment top of stack
 	NEXT
 
-	defcode "1-",2,,DECR
-	decl (%esp)		// decrement top of stack
-	NEXT
-
 	defcode "4+",2,,INCR4
 	addl $4,(%esp)		// add 4 to top of stack
-	NEXT
-
-	defcode "4-",2,,DECR4
-	subl $4,(%esp)		// subtract 4 from top of stack
 	NEXT
 
 	defcode "+",1,,ADD
@@ -195,38 +175,11 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	push %eax		// push quotient
 	NEXT
 
-	defcode "=",1,,EQU	// top two words are equal?
-	pop %eax
-	pop %ebx
-	cmp %ebx,%eax
-	sete %al
-	movzbl %al,%eax
-	pushl %eax
-	NEXT
-
-	defcode "<>",2,,NEQU	// top two words are not equal?
-	pop %eax
-	pop %ebx
-	cmp %ebx,%eax
-	setne %al
-	movzbl %al,%eax
-	pushl %eax
-	NEXT
-
 	defcode "<",1,,LT
 	pop %eax
 	pop %ebx
 	cmp %eax,%ebx
 	setl %al
-	movzbl %al,%eax
-	pushl %eax
-	NEXT
-
-	defcode ">",1,,GT
-	pop %eax
-	pop %ebx
-	cmp %eax,%ebx
-	setg %al
 	movzbl %al,%eax
 	pushl %eax
 	NEXT

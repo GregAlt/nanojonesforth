@@ -3,3 +3,11 @@
 : -ROT ROT ROT ;
 : 2SWAP ROT >R ROT R> ;
 : OVER SWAP DUP -ROT ;
+: 1- 1 - ;
+: 4- 4 - ;
+: = - 0= ;
+: <> = 0= ;
+: > SWAP < ;
+: IF IMMEDIATE ' 0BRANCH , HERE @ 0 , ;
+: THEN IMMEDIATE DUP HERE @ SWAP - SWAP ! ;
+: ?DUP DSP@ @ IF DUP THEN ;
