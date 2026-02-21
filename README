@@ -1,3 +1,22 @@
+   NanoJonesForth is a project to shrink the assembly language from jonesforth,
+   moving words into forth source while maintaining compatibility.
+
+   I'm trying to balance a few somewhat conflicting goals:
+   - Minimal nanojonesforth.S file size
+   - Simple and straightforward nanojonesforth.S file (no obfuscations)
+   - Minimal stripped .elf result
+   - No assembly language outside of forth definitions
+   - Minimal number of defcode words
+   - No complex defcode words
+   - Minimal number of defvar and defconst words
+   - After reducing defcode words, minimal number of defword compiled forth words
+   - Good performance is not a goal, but I'll avoid gratuitous bad performance
+   - Compatibility with jonesforth, including all tests passing
+       (with minor adjustments for specific offsets in exception and stack tests)
+   - No handcrafted .elf - the elf will be built with standard tools and stripped
+
+Based on https://github.com/nornagon/jonesforth/tree/master which describes itself as:
+
 This is a mirror of Richard WM Jones's excellent literate x86 assembly
 implementation of Forth, more on which here:
 http://rwmj.wordpress.com/2010/08/07/jonesforth-git-repository/
