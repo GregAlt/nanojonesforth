@@ -24,12 +24,6 @@
 
 	gcc -m32 -nostdlib -static -Wl,-Ttext,0 -Wl,--build-id=none -o jonesforth jonesforth.S
 */
-	.set JONES_VERSION,47
-	.set F_IMMED,0x80
-	.set F_HIDDEN,0x20
-	.set F_LENMASK,0x1f	// length mask
-	.set RETURN_STACK_SIZE,8192
-	.set BUFFER_SIZE,4096
 
 //#include <asm-i386/unistd.h>	// you might need this instead
 #include <asm/unistd.h>
@@ -52,6 +46,7 @@
 
 	.macro defconst name, namelen, flags=0, label, value
 	defcode \name,\namelen,\flags,\label
+	.set value_\name,\value	
 	push $\value
 	NEXT
 	.endm
@@ -246,7 +241,7 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	defvar "KEY_BUFFER",2,,KEY_BUFFER,,4096,4096
 	defvar "KEY_CURRKEY",11,,KEY_CURRKEY,var_KEY_BUFFER
 	defvar "KEY_BUFFTOP",11,,KEY_BUFFTOP,var_KEY_BUFFER
-	defvar "KEY_BUFFER_SIZE",15,,KEY_BUFFER_SIZE,BUFFER_SIZE
+	defvar "KEY_BUFFER_SIZE",15,,KEY_BUFFER_SIZE,4096
 	defvar "INTERPRET_IS_LIT",16,,INTERPRET_IS_LIT
 	defvar "INTERPRET_ERRMSG",16,,INTERPRET_ERRMSG,errmsg
 	defvar "INTERPRET_ERRMSGLEN",19,,INTERPRET_ERRMSGLEN,errmsgend-errmsg
@@ -261,12 +256,12 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 /* BUILT-IN CONSTANTS ---------------------------------------------------------------------- */
 
 	defconst "INITIAL_DATA_SEGMENT_SIZE",25,,INITIAL_DATA_SEGMENT_SIZE,65536
-	defconst "VERSION",7,,VERSION,JONES_VERSION
+	defconst "VERSION",7,,VERSION,47 // JONES_VERSION
 	defconst "R0",2,,RZ,var_RET_STACK+size_RET_STACK
 	defconst "DOCOL",5,,__DOCOL,code_DOCOL
-	defconst "F_IMMED",7,,__F_IMMED,F_IMMED
-	defconst "F_HIDDEN",8,,__F_HIDDEN,F_HIDDEN
-	defconst "F_LENMASK",9,,__F_LENMASK,F_LENMASK
+	defconst "F_IMMED",7,,__F_IMMED,0x80
+	defconst "F_HIDDEN",8,,__F_HIDDEN,0x20
+	defconst "F_LENMASK",9,,__F_LENMASK,0x1f
 	defconst "ZERO",4,,ZERO,0
 	defconst "ONE",3,,ONE,1
 	defconst "TWO",3,,TWO,2
@@ -323,7 +318,7 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	defword ",",1,,COMMA
 	.int HERE, FETCH, STORE, HERE, FETCH, INCR, INCR, INCR, INCR, HERE, STORE, EXIT
 
-	defword "[",1,F_IMMED,LBRAC
+	defword "[",1,value_F_IMMED,LBRAC
 	.int ZERO, STATE, STORE, EXIT
 
 	defword "]",1,,RBRAC
@@ -344,7 +339,7 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	.int ZERO, ZBRANCH, -48, DROP, DROP, DROP, EXIT
 
 	defword ">CFA",4,,TCFA
-	.int LIT, 4, ADD, DUP, FETCHBYTE, SWAP, INCR, SWAP, LIT, F_LENMASK, NAND, DUP, NAND, ADD, INCR, INCR
+	.int LIT, 4, ADD, DUP, FETCHBYTE, SWAP, INCR, SWAP, __F_LENMASK, NAND, DUP, NAND, ADD, INCR, INCR
         .int INCR, LIT, -4, NAND, DUP, NAND, EXIT
 
 	defword "KEY",3,,KEY
@@ -405,25 +400,30 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	.int RBRAC		// Go into compile mode.
 	.int EXIT		// Return from the function.
 
-	defword ";",1,F_IMMED,SEMICOLON
+	defword ";",1,value_F_IMMED,SEMICOLON
 	.int LIT, EXIT, COMMA	// Append EXIT (so the word will return).
 	.int LATEST, FETCH, HIDDEN // Toggle hidden flag -- unhide the word (see below for definition).
 	.int LBRAC		// Go back to IMMEDIATE mode.
 	.int EXIT		// Return from the function.
 
 	defword "COLD_START",10,,COLD_START
-	.int RZ, RSPSTORE, DSPFETCH, SZ, STORE, ZERO, DUP, DUP, DUP, DUP, SYS_BRK, SYSCALL3, DUP, HERE, STORE
-	.int INITIAL_DATA_SEGMENT_SIZE, ZERO, SWAP, SUB, SUB, SYS_BRK, SYSCALL3, DROP, QUIT
+	.int RZ, RSPSTORE, DSPFETCH, SZ, STORE, ZERO, DUP, DUP, DUP, DUP, SYS_BRK
+	.int SYSCALL3, DUP, HERE, STORE, INITIAL_DATA_SEGMENT_SIZE, ZERO, SWAP
+	.int SUB, SUB, SYS_BRK, SYSCALL3, DROP, QUIT
 
 	defword "INTERPRET",9,,INTERPRET
-        .int WORD, TWODUP, ZERO, INTERPRET_IS_LIT, STORE, FIND, DUP, ZBRANCH, 80, SWAP, DROP, SWAP, DROP, DUP
-        .int INCR, INCR, INCR, INCR, FETCHBYTE, SWAP, TCFA, SWAP, __F_IMMED, NAND, DUP, NAND, BRANCH, 200
-        .int INTERPRET_IS_LIT, FETCH, INCR, INTERPRET_IS_LIT, STORE, DROP, NUMBER, ZBRANCH, 160
-        .int INTERPRET_ERRMSGLEN, FETCH, INTERPRET_ERRMSG, FETCH, TWO, SYS_WRITE, SYSCALL3, KEY_CURRKEY, FETCH
-        .int KEY_BUFFER, SUB, DUP, KEY_BUFFER, ADD, SWAP, DUP, FORTY, SWAP, FORTY, SWAP, LT, ZBRANCH, 8, SWAP, DROP
-        .int TWODUP, SUB, TWO, SYS_WRITE, SYSCALL3, DROP, ONE, INTERPRET_ERRMSGNL, FETCH, TWO, SYS_WRITE, SYSCALL3, DROP
-        .int EXIT, ZERO, ZEQU, STATE, FETCH, MUL, ONE, SWAP, SUB, ZBRANCH, 44, INTERPRET_IS_LIT, FETCH, ZEQU, ZBRANCH, 16
-        .int EXECUTE, BRANCH, 4, BRANCH, 36, INTERPRET_IS_LIT, FETCH, ZBRANCH, 16, TICK, LIT, COMMA, COMMA, EXIT
+        .int WORD, TWODUP, ZERO, INTERPRET_IS_LIT, STORE, FIND, DUP, ZBRANCH, 80
+        .int SWAP, DROP, SWAP, DROP, DUP, INCR, INCR, INCR, INCR, FETCHBYTE, SWAP
+ 	.int TCFA, SWAP, __F_IMMED, NAND, DUP, NAND, BRANCH, 200, INTERPRET_IS_LIT
+	.int FETCH, INCR, INTERPRET_IS_LIT, STORE, DROP, NUMBER, ZBRANCH, 160 
+	.int INTERPRET_ERRMSGLEN, FETCH, INTERPRET_ERRMSG, FETCH, TWO, SYS_WRITE
+	.int SYSCALL3, KEY_CURRKEY, FETCH, KEY_BUFFER, SUB, DUP, KEY_BUFFER, ADD
+	.int SWAP, DUP, FORTY, SWAP, FORTY, SWAP, LT, ZBRANCH, 8, SWAP, DROP, TWODUP
+	.int SUB, TWO, SYS_WRITE, SYSCALL3, DROP, ONE, INTERPRET_ERRMSGNL, FETCH
+	.int TWO, SYS_WRITE, SYSCALL3, DROP, EXIT, ZERO, ZEQU, STATE, FETCH, MUL
+	.int ONE, SWAP, SUB, ZBRANCH, 44, INTERPRET_IS_LIT, FETCH, ZEQU, ZBRANCH, 16
+        .int EXECUTE, BRANCH, 4, BRANCH, 36, INTERPRET_IS_LIT, FETCH, ZBRANCH, 16
+	.int TICK, LIT, COMMA, COMMA, EXIT
 
 	// QUIT must not return (ie. must not call EXIT).
 	defword "QUIT",4,,QUIT
