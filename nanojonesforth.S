@@ -163,11 +163,11 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	pushl %eax
 	NEXT
 
-        defcode "NAND",4,,NAND    // bitwise NAND
-        pop %eax
-        andl %eax,(%esp)
+	defcode "NAND",4,,NAND    // bitwise NAND
+	pop %eax
+	andl %eax,(%esp)
 	notl (%esp)
-        NEXT
+	NEXT
 
 	defcode "EXIT",4,,EXIT
 	POPRSP %esi		// pop return stack into %esi
@@ -298,7 +298,7 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	.int RSPFETCH, FETCH, DUP, FETCH, ADD, RSPFETCH, STORE, EXIT
 
 	defword "0BRANCH",7,,ZBRANCH
-        .int DUP, INCR, ZERO, SWAP, LT, SWAP, ONE, LT, MUL, RSPFETCH, FETCH, DSPFETCH
+	.int DUP, INCR, ZERO, SWAP, LT, SWAP, ONE, LT, MUL, RSPFETCH, FETCH, DSPFETCH
 	.int INCR, INCR, INCR, INCR, FETCH, DSPFETCH, INCR, INCR, INCR, INCR, FETCH
 	.int FETCH, TWO, SUB, TWO, SUB, MUL, ADD, INCR, INCR, INCR, INCR, RSPFETCH
 	.int STORE, DROP, EXIT
@@ -340,7 +340,7 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 
 	defword ">CFA",4,,TCFA
 	.int LIT, 4, ADD, DUP, FETCHBYTE, SWAP, INCR, SWAP, __F_LENMASK, NAND, DUP, NAND, ADD, INCR, INCR
-        .int INCR, LIT, -4, NAND, DUP, NAND, EXIT
+	.int INCR, LIT, -4, NAND, DUP, NAND, EXIT
 
 	defword "KEY",3,,KEY
 	.int KEY_CURRKEY, FETCH, KEY_BUFFTOP, FETCH, SWAP, INCR, LT, ZBRANCH, 132, KEY_BUFFER, KEY_CURRKEY, STORE
@@ -412,9 +412,9 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	.int SUB, SUB, SYS_BRK, SYSCALL3, DROP, QUIT
 
 	defword "INTERPRET",9,,INTERPRET
-        .int WORD, TWODUP, ZERO, INTERPRET_IS_LIT, STORE, FIND, DUP, ZBRANCH, 80
-        .int SWAP, DROP, SWAP, DROP, DUP, INCR, INCR, INCR, INCR, FETCHBYTE, SWAP
- 	.int TCFA, SWAP, __F_IMMED, NAND, DUP, NAND, BRANCH, 200, INTERPRET_IS_LIT
+	.int WORD, TWODUP, ZERO, INTERPRET_IS_LIT, STORE, FIND, DUP, ZBRANCH, 80
+	.int SWAP, DROP, SWAP, DROP, DUP, INCR, INCR, INCR, INCR, FETCHBYTE, SWAP
+	.int TCFA, SWAP, __F_IMMED, NAND, DUP, NAND, BRANCH, 200, INTERPRET_IS_LIT
 	.int FETCH, INCR, INTERPRET_IS_LIT, STORE, DROP, NUMBER, ZBRANCH, 160 
 	.int INTERPRET_ERRMSGLEN, FETCH, INTERPRET_ERRMSG, FETCH, TWO, SYS_WRITE
 	.int SYSCALL3, KEY_CURRKEY, FETCH, KEY_BUFFER, SUB, DUP, KEY_BUFFER, ADD
@@ -422,7 +422,7 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	.int SUB, TWO, SYS_WRITE, SYSCALL3, DROP, ONE, INTERPRET_ERRMSGNL, FETCH
 	.int TWO, SYS_WRITE, SYSCALL3, DROP, EXIT, ZERO, ZEQU, STATE, FETCH, MUL
 	.int ONE, SWAP, SUB, ZBRANCH, 44, INTERPRET_IS_LIT, FETCH, ZEQU, ZBRANCH, 16
-        .int EXECUTE, BRANCH, 4, BRANCH, 36, INTERPRET_IS_LIT, FETCH, ZBRANCH, 16
+	.int EXECUTE, BRANCH, 4, BRANCH, 36, INTERPRET_IS_LIT, FETCH, ZBRANCH, 16
 	.int TICK, LIT, COMMA, COMMA, EXIT
 
 	// QUIT must not return (ie. must not call EXIT).
