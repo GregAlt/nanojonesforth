@@ -57,7 +57,7 @@ jonesforth. Instead of:
 
 [4 Byte LINK][1 Byte flags/len][1-31 Bytes Name][0-3 Bytes padding][4 Bytes codeword]
 
-I ignore flagsm, force len==3, force exactly 3-char names strings, and then force
+I ignore flags, force len==3, force exactly 3-char names strings, and then force
 4 bytes padding before the codeword:
 
 [4 Byte LINK][1 Byte len==3][3 Bytes Name][4 Bytes padding][4 Bytes codeword]
