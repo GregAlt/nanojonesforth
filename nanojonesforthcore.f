@@ -42,13 +42,20 @@ HER @__ !__ HER @__ G_4 -__ HER !__
 \\\ OK, now we have a way to make comments
 \\\ the above is just manually creating this for comments:
 \\\    :01 \\\ KEY G_4 DUP *__ <__ 0BR 32o EXI 00;
-\\\ which is just keep reading/discarding keys until less than 16, a newline
+\\\ equivalent to:
+\\\    : \\\ BEGIN 16 KEY < UNTIL ;
+\\\ which is just reading/discarding keys until newline (less than or equal 16)
 
 \\\ Some things to note - first the header for a new \\\ word:
+\\\   G0 is constant 0, G_4 is constant -4
+\\\   otherwise, words are as expected, just forced to 3 characters
+\\\   DOCOL is copied from codeword of last word in dict (at 12 byte offset)
 \\\
 \\\  KEY \ KEY \ KEY \                                    \ '\' '\' '\'(top)
-\\\  G_4 DUP *__ DUP *__ *__ G0_ SWA -__ -__                   
-\\\              G_4 DUP *__ DUP *__ *__ G0_ SWA -__ -__  \ name [24-bit value]
+\\\  G_4 DUP *__ DUP *__ *__                              \ '\' '\' '\'*256
+\\\              G0_ SWA -__ -__                          \ '\' ('\'+'\'*256)
+\\\              G_4 DUP *__ DUP *__ *__                  \ '\' ('\'+'\'*256)*256 
+\\\              G0_ SWA -__ -__                          \ name [24-bit value]
 \\\  G_4 DUP *__ DUP *__ *__ 1+_ 1+_ 1+_                  \ 3name [length/name]
 \\\  LAT @__ HER @__ !__                                  \ 3name [link stored]
 \\\  HER @__ G_4 -__ !__                                  \ [3name stored]
@@ -62,6 +69,9 @@ HER @__ !__ HER @__ G_4 -__ HER !__
 \\\  [LINK, 4-bytes][name len=3, 1-byte][name, 3-bytes][padding, 4-bytes][DOCOL, 4 bytes]
 \\\
 \\\ Then the body follows this pattern:
+\\\   Note the same longwinded way to do *256 and +
+\\\   Also +12 offset by repeatedly subtracting -4
+\\\
 \\\  KEY K KEY E KEY Y                                    \ 'K' 'E' 'Y'(top)
 \\\  G_4 DUP *__ DUP *__ *__ G0_ SWA -__ -__                   
 \\\              G_4 DUP *__ DUP *__ *__ G0_ SWA -__ -__  \ name [24-bit value]
@@ -74,10 +84,11 @@ HER @__ !__ HER @__ G_4 -__ HER !__
 \\\ This repeats for all of the words for the definition, ending with EXI (EXIT)
 
 \\\ jonesforth.S gives us a simple interpreter, based on a small subset of forth:
+\\\   (standard jonesforth meaning unless noted)
 
 \\\ defcode words: (asm)
 \\\ sta     start       Executable entry point, not used as a forth word
-\\\ DOC     DOCOL        
+\\\ DOC     DOCOL       Simple "interpreter" from jonesforth
 \\\ DRO     DROP
 \\\ SWA     SWAP
 \\\ DUP     DUP
@@ -103,8 +114,8 @@ HER @__ !__ HER @__ G_4 -__ HER !__
 \\\ HER     HERE
 \\\ LAT     LATEST
 \\\ S0_     S0
-\\\ RET     RET_STA     Return stack
-\\\ WB_     WB          Word buffer
+\\\ RET     RET_STA     Return stack (used internally)
+\\\ WB_     WB          Word buffer (will be used internally for WORD)
 
 \\\ defconst words: (asm constants)
 \\\ R0_     R0          Return stack top
@@ -119,10 +130,10 @@ HER @__ !__ HER @__ G_4 -__ HER !__
 \\\ SBS     SYS_BRK
 
 \\\ defword words: (compiled forth)
-\\\ COL     COLD_START
+\\\ COL     COLD_START -- used internally
 \\\ 0BR     0BRANCH
 \\\ FIN     FIND -- takes pointer and assumes len==3, crashes if not found
-\\\ KEY     KEY
+\\\ KEY     KEY -- without buffering for now
 \\\ WOR     WORD -- returns only pointer to the name
 \\\ QUI     QUIT
 
@@ -131,6 +142,7 @@ HER @__ !__ HER @__ G_4 -__ HER !__
 
 \\\ manually create +__
 \\\ : +__ G0_ SWA -__ -__ ;
+
 \\\ first the header:
 KEY + KEY _ KEY _
 G_4 DUP *__ DUP *__ *__ G0_ SWA -__ -__ G_4 DUP *__ DUP *__ *__ G0_ SWA -__ -__
@@ -142,6 +154,7 @@ LAT @__ @__ G_4 -__ G_4 -__ G_4 -__ @__ SWA
 LAT !__
 SWA G_4 -__ G_4 -__ G_4 -__ HER !__
 HER @__ !__ HER @__ G_4 -__ HER !__
+
 \\\ then the body:
 KEY G KEY 0 KEY _    \\\ G0_
   G_4 DUP *__ DUP *__ *__ G0_ SWA -__ -__ G_4 DUP *__ DUP *__ *__ G0_ SWA -__ -__
@@ -166,6 +179,7 @@ KEY E KEY X KEY I    \\\ EXI
 
 \\\ manually create a word to put 256 on the stack
 \\\ : 256 4 DUP * DUP * ;
+
 \\\ first the header:
 KEY 2 KEY 5 KEY 6
 G_4 DUP *__ DUP *__ *__ +__ G_4 DUP *__ DUP *__ *__ +__ 
@@ -177,6 +191,7 @@ LAT @__ @__ G_4 -__ G_4 -__ G_4 -__ @__ SWA
 LAT !__
 SWA G_4 -__ G_4 -__ G_4 -__ HER !__ 
 HER @__ !__ HER @__ G_4 -__ HER !__
+
 \\\ then the body:
 KEY G KEY _ KEY 4    \\\ G_4
     G_4 DUP *__ DUP *__ *__ +__ G_4 DUP *__ DUP *__ *__ +__ 
@@ -296,6 +311,8 @@ KEY E KEY X KEY I \\\ EXI
     256 *__ +__ 256 *__ +__ DSP FIN >CF SWA DRO ,__
 
 \\\ make :00 -- creates header--> : :00 WOR DRO @__ 256 *__ 1+_ 1+_ 1+_ LAT @__ ...
+\\\  this is big, dozens of words in the body, so tick and comma come in handy
+\\\  after defining :00, headers are much simpler, too!
 KEY : KEY 0 KEY 0
 256 *__ +__ 256 *__ +__ 256 *__ 1+_ 1+_ 1+_
 LAT @__ HER @__ !__
@@ -334,12 +351,14 @@ __' HER ,__ __' !__ ,__ __' ,__ ,__ __' EXI ,__
             __' -__ ,__ __' G4_ ,__ __' DUP ,__ __' *__ ,__ __' -__ ,__ __' G4_ ,__ 
             __' -__ ,__ __' EXI ,__
 
-\\\ Everything below assumes WOR returns a pointer and length, and FIN and
-\\\ CRE expect len, even if they just drop it. Above here, the assumption is
-\\\ that WOR just returns the pointer without a length, and FIN doesn't need
+\\\ Everything defined below assumes WOR returns a pointer and length, and FIN 
+\\\ and CRE expect len, even if they just drop it. Above here, the assumption 
+\\\ is that WOR just returns the pointer without a length, and FIN doesn't need
 \\\ to drop it.
 
 \\\ CREATE
+\\\   : CREATE DROP @ 4 4 * DUP * * 1+ 1+ 1+ LATEST @ HERE @ ! HERE @ 4 + ! 
+\\\            HERE @ DUP LATEST ! >CFA HERE ! ;
 :00 CRE
   __' DRO ,__ __' @__ ,__ __' G4_ ,__ __' G4_ ,__ __' *__ ,__ __' DUP ,__ 
   __' *__ ,__ __' *__ ,__ __' 1+_ ,__ __' 1+_ ,__ __' 1+_ ,__ __' LAT ,__ 
@@ -348,6 +367,8 @@ __' HER ,__ __' !__ ,__ __' ,__ ,__ __' EXI ,__
   __' LAT ,__ __' !__ ,__ __' >CF ,__ __' HER ,__ __' !__ ,__ __' EXI ,__
 
 \\\ reads first two chars of a word as octal, no error checking. For branches
+\\\   : NUM DROP DUP C@ 4 DUP + /MOD DROP 4 DUP + * SWAP 1+ C@ 4 DUP + /MOD 
+\\\         DROP + 32 - 4 * ;
 :00 NUM 
   __' DRO ,__ __' DUP ,__ __' C@_ ,__ __' G4_ ,__ __' DUP ,__ __' +__ ,__ 
   __' /MO ,__ __' DRO ,__ __' G4_ ,__ __' DUP ,__ __' +__ ,__ __' *__ ,__ 
@@ -355,18 +376,23 @@ __' HER ,__ __' !__ ,__ __' ,__ ,__ __' EXI ,__
   __' /MO ,__ __' DRO ,__ __' +__ ,__ __' G32 ,__ __' -__ ,__ __' G4_ ,__ 
   __' *__ ,__ __' EXI ,__ 
 
-\\\ need 2DUP
+\\\ standard 2DUP
+\\\   : 2DUP DSP@ 4 + @ DSP@ 4 + @ ;
 :00 2DU
   __' DSP ,__ __' G4_ ,__ __' +__ ,__ __' @__ ,__ __' DSP ,__ __' G4_ ,__ 
   __' +__ ,__ __' @__ ,__ __' EXI ,__
 
-\\\ need 0=
+\\\ standard 0=
+\\\   : 0= DUP 0 0 1+ - SWAP < SWAP 0 1+ < * ;
 :00 0=_
   __' DUP ,__ __' G0_ ,__ __' G0_ ,__ __' 1+_ ,__ __' -__ ,__ __' SWA ,__ 
   __' <__ ,__ __' SWA ,__ __' G0_ ,__ __' 1+_ ,__ __' <__ ,__ __' *__ ,__ 
   __' EXI ,__
 
 \\\ a version of WOR that also returns the length
+\\\   : WORD 0 DROP KEY DUP -4 DUP * DUP 0 SWAP - - SWAP < 0BRANCH 
+\\\          0 60 - 4 + KEY KEY -4 DUP * DUP * * 0 SWAP - - 
+\\\          -4 DUP * DUP * * 0 SWAP - - WB ! WB 0 1+ 1+ 1+ KEY DROP ;
 :00 WOR
   __' G0_ ,__ __' DRO ,__ __' KEY ,__ __' DUP ,__ __' G_4 ,__ __' DUP ,__ 
   __' *__ ,__ __' DUP ,__ __' G0_ ,__ __' SWA ,__ __' -__ ,__ __' -__ ,__ 
@@ -380,6 +406,9 @@ __' HER ,__ __' !__ ,__ __' ,__ ,__ __' EXI ,__
 
 
 \\\ we need a version of FIN that returns 0 if it fails to find the word
+\\\   : FIND DROP @ 4 DUP * DUP * * 1+ 1+ 1+ LATEST * 2DUP DUP 0BRANCH 
+\\\          60 4 + @ - 0= 0BRANCH 16 SWAP DROP EXIT @ 0 0BRANCH 
+\\\          0 68 - DROP DROP DROP DROP 0 ;
 :00 FIN
   __' DRO ,__ __' @__ ,__ __' G4_ ,__ __' DUP ,__ __' *__ ,__ __' DUP ,__ 
   __' *__ ,__ __' *__ ,__ __' 1+_ ,__ __' 1+_ ,__ __' 1+_ ,__ __' LAT ,__ 
@@ -513,7 +542,7 @@ G4_ 1+ 1+ 1+ SHT SWS \\\ SWS_WRI
 G4_ 1+ 1+ 1+ SHT SCS \\\ SCS_CRE
 G4_ 1+ 1+ 1+ SHT SBS \\\ SBS_BRK
 
-\\\ Set to 1-3 char name length
+\\\ Set to 1-2 char name length
 G1_ S<4 *__        \\\ *
 G1_ S<4 <__        \\\ <
 G1_ S<4 !__        \\\ !
@@ -686,6 +715,7 @@ VARIABLE KEY_CURRKEY KEY_BUFFER KEY_CURRKEY !
 
 \ start hiding early versions of words to be replaced
 :04 HIDE WORD0 FIND HIDDEN EXIT 00;
+
 HIDE KEY
 :04 KEY KEY_CURRKEY @ KEY_BUFFTOP @ SWAP 1+ < 0BRANCH 70 KEY_BUFFER KEY_CURRKEY ! KEY_BUFFER_SIZE 
     KEY_BUFFER G0 SYS_READ SYSCALL3 DUP G1 < 0BRANCH 44 DROP CALL_SYS_EXIT EXIT KEY_BUFFER + 
@@ -695,6 +725,7 @@ HIDE KEY
     0BRANCH 13 WB SWAP WB SWAP SWAP C! 1+ DUP KEY DUP G32 1+ < 0BRANCH 26 DROP DROP WB - WB SWAP 
     EXIT 00;
 
+\ finally, the proper : word we want
 :04 : WORD CREATE DOCOL , LATEST @ HIDDEN ] EXIT 00;
 
 :04 IMMEDIATE LATEST @ G4 + DUP C@ DUP F_IMMED SWAP F_IMMED NAND DUP NAND - SWAP F_IMMED DUP NAND 
