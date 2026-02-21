@@ -220,17 +220,6 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	pop %esp
 	NEXT
 
-	defcode "BRANCH",6,,BRANCH
-	add (%esi),%esi		// add the offset to the instruction pointer
-	NEXT
-
-	defcode "0BRANCH",7,,ZBRANCH
-	pop %eax
-	test %eax,%eax		// top of stack is zero?
-	jz code_BRANCH		// if so, jump back to the branch function above
-	lodsl			// otherwise we need to skip the offset
-	NEXT
-
 	defcode "EXECUTE",7,,EXECUTE
 	pop %eax		// Get xt into %eax
 	jmp *(%eax)		// and jump to it.
@@ -309,6 +298,15 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	defconst "O_NONBLOCK",10,,__O_NONBLOCK,04000
 
 /* defword compiled forth word definitions ------------------------------------------------- */
+
+	defword "BRANCH",6,,BRANCH
+	.int RSPFETCH, FETCH, DUP, FETCH, ADD, RSPFETCH, STORE, EXIT
+
+	defword "0BRANCH",7,,ZBRANCH
+        .int DUP, INCR, ZERO, SWAP, LT, SWAP, ONE, LT, MUL, RSPFETCH, FETCH, DSPFETCH
+	.int INCR, INCR, INCR, INCR, FETCH, DSPFETCH, INCR, INCR, INCR, INCR, FETCH
+	.int FETCH, TWO, SUB, TWO, SUB, MUL, ADD, INCR, INCR, INCR, INCR, RSPFETCH
+	.int STORE, DROP, EXIT
 
 	defword "2DUP",4,,TWODUP // duplicate top two elements of stack
 	.int DSPFETCH, INCR, INCR, INCR, INCR, FETCH, DSPFETCH, INCR, INCR, INCR, INCR, FETCH, EXIT
@@ -413,12 +411,6 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
 	.int LBRAC		// Go back to IMMEDIATE mode.
 	.int EXIT		// Return from the function.
 
-	defword "HIDE",4,,HIDE
-	.int WORD		// Get the word (after HIDE).
-	.int FIND		// Look up in the dictionary.
-	.int HIDDEN		// Set F_HIDDEN flag.
-	.int EXIT		// Return.
-
 	defword "COLD_START",10,,COLD_START
 	.int RZ, RSPSTORE, DSPFETCH, SZ, STORE, ZERO, DUP, DUP, DUP, DUP, SYS_BRK, SYSCALL3, DUP, HERE, STORE
 	.int INITIAL_DATA_SEGMENT_SIZE, ZERO, SWAP, SUB, SUB, SYS_BRK, SYSCALL3, DROP, QUIT
@@ -432,9 +424,6 @@ var_\name : .if \size == 4 ; .int \initial ; .else ; .space \size ; .endif
         .int TWODUP, SUB, TWO, SYS_WRITE, SYSCALL3, DROP, ONE, INTERPRET_ERRMSGNL, FETCH, TWO, SYS_WRITE, SYSCALL3, DROP
         .int EXIT, ZERO, ZEQU, STATE, FETCH, MUL, ONE, SWAP, SUB, ZBRANCH, 44, INTERPRET_IS_LIT, FETCH, ZEQU, ZBRANCH, 16
         .int EXECUTE, BRANCH, 4, BRANCH, 36, INTERPRET_IS_LIT, FETCH, ZBRANCH, 16, TICK, LIT, COMMA, COMMA, EXIT
-
-	defword "CHAR",4,,CHAR
-	.int WORD, DROP, FETCH, LIT, 255, NAND, DUP, NAND, EXIT ;
 
 	// QUIT must not return (ie. must not call EXIT).
 	defword "QUIT",4,,QUIT

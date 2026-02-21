@@ -46,3 +46,5 @@
         4+ SWAP                 \ next+4 next
         @                       \ next+4 len
 ;
+ : HIDE WORD FIND HIDDEN ;
+: CHAR WORD DROP @ 255 NAND DUP NAND ;
